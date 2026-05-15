@@ -1,0 +1,39 @@
+[tool]
+name = "Pattern Remover"
+description = "Removes or replaces text matching a regex pattern in all TXT/MD files in a folder"
+icon = "ti-replace"
+script = "pattern_remover.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with TXT/MD files"
+type = "folder"
+placeholder = "Select folder containing files"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "pattern"
+label = "Regex pattern"
+type = "text"
+placeholder = "(text_here)"
+required = true
+icon = "ti-regex"
+
+[[params]]
+id = "replacement"
+label = "Replacement (leave empty to delete)"
+type = "text"
+placeholder = "\\1"
+required = false
+icon = "ti-replace"
+
+[[params]]
+id = "file_glob"
+label = "File type"
+type = "dropdown"
+options = ["*.txt", "*.md", "*.txt and *.md"]
+default = "*.txt"
+required = true
+icon = "ti-file"

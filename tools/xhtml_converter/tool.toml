@@ -1,0 +1,23 @@
+[tool]
+name = "XHTML Converter"
+description = "Converts HTML/XHTML files to plain TXT or Markdown format"
+icon = "ti-file-type-html"
+script = "xhtml_converter.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with HTML/XHTML files"
+type = "folder"
+placeholder = "Select folder containing .html/.xhtml files"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "output_format"
+label = "Output format"
+type = "dropdown"
+options = ["txt", "md"]
+default = "txt"
+required = true
+icon = "ti-file-export"

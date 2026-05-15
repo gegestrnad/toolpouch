@@ -1,0 +1,14 @@
+[tool]
+name = "Cleanup TXT"
+description = "Strips leading/trailing whitespace, removes blank lines, and collapses multiple spaces in all TXT files in a folder"
+icon = "ti-eraser"
+script = "cleanup_txt.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with TXT files"
+type = "folder"
+placeholder = "Select folder containing .txt files"
+required = true
+icon = "ti-folder"

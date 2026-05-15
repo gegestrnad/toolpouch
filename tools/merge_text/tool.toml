@@ -1,0 +1,21 @@
+[tool]
+name = "Merge Text files"
+description = "Merges all TXT files in a folder into a single combined TXT file with file headers"
+icon = "ti-tool"
+script = "merge_text.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with TXT files"
+type = "folder"
+placeholder = "Select folder containing .txt files"
+required = true
+icon = "ti-settings"
+
+[[params]]
+id = "output_file"
+label = "Output filename"
+type = "text"
+placeholder = "_merged.txt"
+icon = "ti-settings"

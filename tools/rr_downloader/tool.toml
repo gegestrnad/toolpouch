@@ -1,0 +1,21 @@
+[tool]
+name = "RoyalRoad Downloader to TXT"
+description = "Scrapes a RoyalRoad novel and saves all chapters as a ZIP of TXT files"
+icon = "ti-world-download"
+script = "rr_downloader.py"
+long_running = true
+
+[[params]]
+id = "url"
+label = "Novel URL"
+type = "text"
+placeholder = "https://www.royalroad.com/fiction/12345/my-novel"
+required = true
+icon = "ti-settings"
+
+[[params]]
+id = "output_dir"
+label = "Output folder"
+type = "folder"
+placeholder = "Leave empty to use script folder"
+icon = "ti-settings"

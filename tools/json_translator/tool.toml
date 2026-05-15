@@ -1,0 +1,24 @@
+[tool]
+name = "JSON Translator"
+description = "Translates Chinese text inside JSON files within a ZIP archive to English"
+icon = "ti-language"
+script = "translate_jsons.py"
+long_running = true
+
+[[params]]
+id = "input_zip"
+label = "Input ZIP file"
+type = "file"
+filter = "*.zip"
+placeholder = "Select books.zip"
+required = true
+icon = "ti-file-zip"
+
+[[params]]
+id = "output_zip"
+label = "Output ZIP file"
+type = "save"
+filter = "*.zip"
+placeholder = "books_translated.zip"
+required = false
+icon = "ti-file-export"
