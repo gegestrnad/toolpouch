@@ -108,7 +108,6 @@ Restart Tool Pouch (or add via wizard) to pick up new tools.
 
 | Tool | Description |
 |---|---|
-| RR Downloader | Scrapes RoyalRoad novels to ZIP |
 | JSON Translator | Translates Chinese JSON fields to English |
 | TXT to PDF | Merges TXT files into a single PDF |
 | Cleanup TXT | Strips whitespace and blank lines from TXT files |
