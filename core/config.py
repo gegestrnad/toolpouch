@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
+import base64
 
 
 class ConfigManager:
@@ -39,6 +40,14 @@ class ConfigManager:
                 value = value.get(k, default)
             else:
                 return default
+
+        # Special-case geometry: decode base64 string to bytes if needed
+        if key == "window.geometry" and isinstance(value, str):
+            if value.startswith("b64:"):
+                try:
+                    return base64.b64decode(value[4:])
+                except Exception:
+                    return default
         return value
 
     def set(self, key: str, value):
@@ -48,6 +57,22 @@ class ConfigManager:
             if k not in current:
                 current[k] = {}
             current = current[k]
+
+        # Special-case geometry: store bytes as base64-encoded string
+        if key == "window.geometry" and (isinstance(value, (bytes, bytearray)) or hasattr(value, 'data')):
+            try:
+                # If it's a Qt QByteArray-like object with .data(), get the bytes
+                if hasattr(value, 'data'):
+                    raw = bytes(value.data())
+                else:
+                    raw = bytes(value)
+                current[keys[-1]] = "b64:" + base64.b64encode(raw).decode('ascii')
+                return
+            except Exception:
+                # Fallback to str
+                current[keys[-1]] = str(value)
+                return
+
         current[keys[-1]] = value
 
     def save(self):

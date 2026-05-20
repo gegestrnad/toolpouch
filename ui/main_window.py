@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 
 from core.tool_loader import ToolDefinition, load_tools
 from core.config import ConfigManager
@@ -350,7 +351,11 @@ class MainWindow(QMainWindow):
         # Restore window geometry from config
         geometry = self.config.get("window.geometry", None)
         if geometry:
-            self.restoreGeometry(geometry)
+            try:
+                self.restoreGeometry(geometry)
+            except Exception:
+                # If restore fails, ignore and continue with default size
+                pass
         else:
             self.resize(1000, 680)
         
@@ -487,12 +492,14 @@ class MainWindow(QMainWindow):
     def _apply_theme(self):
         theme_name = self.config.get("theme", "Modern Dark")
         palette = self.theme_manager.get_palette(theme_name)
-        self.setPalette(palette)
+        # Apply palette application-wide so all widgets respect it
+        QApplication.instance().setPalette(palette)
 
     def _on_theme_changed(self, theme_name: str):
         self.config.set("theme", theme_name)
+        self.config.save()
         palette = self.theme_manager.get_palette(theme_name)
-        self.setPalette(palette)
+        QApplication.instance().setPalette(palette)
         # Refresh all panels
         for panel in self._panels.values():
             panel.setPalette(palette)
@@ -621,6 +628,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         # Save window geometry
-        self.config.set("window.geometry", self.saveGeometry())
-        self.config.save()
+        try:
+            geom = self.saveGeometry()
+            self.config.set("window.geometry", geom)
+            self.config.save()
+        except Exception:
+            pass
         super().closeEvent(event)
