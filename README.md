@@ -6,11 +6,11 @@ A modular, extensible GUI for Python utility scripts. Drop in a new tool folder 
 
 ## What's new (v2.0.0)
 
-- Improved and more foolproof Add Tool wizard (better validation, parameter editor, script selection, export/import)
-- Theme system with 5 built-in themes: Modern Dark, Deep Dark, Light Classic, Soft Light, High Contrast
+- Improved and more foolproof Add Tool wizard (better validation, parameter editor, script selection)
+- Theme system with 5 built-in themes: Modern Dark, Moonlit Slate, Paper Daylight, Mist Garden, Clear Contrast
 - Per-user configuration stored at ~/.toolpouch (theme, window geometry, recent tools)
 - Execution logging (logs in ~/.toolpouch/logs)
-- Tool export (.toolpouch as zip) and import support
+- Tool export/import support using `.toolpouch` ZIP packages
 - Input validation and safer TOML generation (quotes escaped)
 - Better packaged runtime behavior when running as a PyInstaller bundle
 
@@ -38,7 +38,9 @@ python main.py
 build.bat
 ```
 
-Output lands in `dist\ToolPouch\`. The entire folder is portable -- copy it anywhere and run `ToolPouch.exe`.
+Output lands in `dist\ToolPouch\`. The entire folder is portable -- copy that whole folder anywhere and run `ToolPouch.exe`.
+
+The build includes a portable Python runtime under `dist\ToolPouch\runtime\` plus the dependencies needed by the included tools. The packaged app does not run `pip install` on first launch.
 
 ---
 
@@ -110,6 +112,7 @@ icon = "ti-settings"
 - Accept all parameters via `argparse` with `--param_id` flags matching your `tool.toml` param IDs
 - Print `PROGRESS:N` (0-100) to stdout to update the progress bar
 - Prefix log lines with `[OK]`, `[WARN]`, or `[ERROR]` for color-coded output
+- For packaged builds, custom tools that need extra third-party packages must have those packages added to the portable runtime during build, or be run from source with the dependencies installed in your development Python environment
 
 ```python
 import argparse, sys
@@ -133,13 +136,15 @@ Restart Tool Pouch (or add via wizard) to pick up new tools.
 
 ## Themes
 
-Choose a theme from the sidebar: two dark themes, two light themes, and a high-contrast theme are included.
+Choose a theme from the sidebar: two dark themes, two light themes, and one high-contrast theme are included.
 
 ---
 
 ## Export / Import Tools
 
-Right-click a tool in the sidebar to export it as a `.toolpouch` (ZIP). Import via the Add Tool wizard by selecting an existing `.toolpouch` or script.
+Right-click a tool in the sidebar to export it as a `.toolpouch` ZIP package. Use **Import tool...** at the bottom of the sidebar to import a `.toolpouch` file.
+
+Imports are validated before copying. A package must contain exactly one tool folder with a `tool.toml` file and the script referenced by that TOML. If a folder with the same name already exists, Tool Pouch imports the new copy with a numbered suffix such as `_2` instead of overwriting your existing tool.
 
 ---
 
@@ -149,7 +154,11 @@ Right-click a tool in the sidebar to export it as a `.toolpouch` (ZIP). Import v
 |---|---|
 | JSON Translator | Translates Chinese JSON fields to English |
 | TXT to PDF | Merges TXT files into a single PDF |
-| Cleanup TXT | Strips whitespace and blank lines from TXT files |
+| Text/Markdown Cleanup | Cleans whitespace and simple Markdown formatting in TXT/MD files |
+| Filename Cleaner | Batch-cleans filenames with a safe preview mode |
+| TXT Splitter | Splits large TXT files by lines, characters, or chapter markers |
+| Regex Extractor | Extracts emails, URLs, headings, or custom regex matches to CSV |
+| Folder Inventory | Exports CSV/Markdown reports of file names, sizes, dates, and paths |
 | Pattern Remover | Removes/replaces regex patterns in TXT/MD files |
 | XHTML Converter | Converts HTML/XHTML to plain TXT or Markdown |
 

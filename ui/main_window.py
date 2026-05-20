@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QLineEdit, QPushButton, QFrame, QStackedWidget,
     QScrollArea, QSizePolicy, QMessageBox, QMenu, QComboBox,
+    QFileDialog,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon
@@ -12,15 +13,13 @@ from PySide6.QtWidgets import QApplication
 
 from core.tool_loader import ToolDefinition, load_tools
 from core.config import ConfigManager
+from core.tool_importer import ToolImportError, import_tool_package
 from ui.tool_panel import ToolPanel
 from ui.wizard_dialog import WizardDialog
 from ui.themes import ThemeManager
 
 
-ACCENT = "#534AB7"
-ACCENT_HOVER = "#3C3489"
-
-STYLESHEET = f"""
+STYLESHEET = """
 QMainWindow, QWidget {{
     background: palette(window);
     color: palette(windowText);
@@ -57,7 +56,7 @@ QMainWindow, QWidget {{
 }}
 
 #search_input:focus {{
-    border: 1px solid {ACCENT};
+    border: 1px solid palette(highlight);
     outline: none;
 }}
 
@@ -80,7 +79,7 @@ QMainWindow, QWidget {{
 
 .tool_item_active {{
     border: none;
-    border-left: 2px solid {ACCENT};
+    border-left: 2px solid palette(highlight);
     border-radius: 0;
     text-align: left;
     padding: 8px 14px;
@@ -102,8 +101,8 @@ QMainWindow, QWidget {{
 }}
 
 #add_tool_btn:hover {{
-    border-color: {ACCENT};
-    color: {ACCENT};
+    border-color: palette(highlight);
+    color: palette(highlight);
 }}
 
 /* Tool header */
@@ -123,8 +122,8 @@ QMainWindow, QWidget {{
 
 /* Run / Stop buttons */
 #run_btn {{
-    background: {ACCENT};
-    color: white;
+    background: palette(highlight);
+    color: palette(highlightedText);
     border: none;
     border-radius: 6px;
     padding: 0 18px;
@@ -134,16 +133,16 @@ QMainWindow, QWidget {{
 }}
 
 #run_btn:hover {{
-    background: {ACCENT_HOVER};
+    background: palette(link);
 }}
 
 #run_btn:pressed {{
-    background: #26215C;
+    background: palette(dark);
 }}
 
 #stop_btn {{
-    background: #A32D2D;
-    color: white;
+    background: palette(linkVisited);
+    color: palette(highlightedText);
     border: none;
     border-radius: 6px;
     padding: 0 18px;
@@ -153,7 +152,7 @@ QMainWindow, QWidget {{
 }}
 
 #stop_btn:hover {{
-    background: #791F1F;
+    background: palette(highlight);
 }}
 
 /* Params */
@@ -176,7 +175,7 @@ QLineEdit {{
 }}
 
 QLineEdit:focus {{
-    border: 1px solid {ACCENT};
+    border: 1px solid palette(highlight);
 }}
 
 QComboBox {{
@@ -187,7 +186,7 @@ QComboBox {{
 }}
 
 QComboBox:focus {{
-    border: 1px solid {ACCENT};
+    border: 1px solid palette(highlight);
 }}
 
 #browse_btn {{
@@ -199,8 +198,8 @@ QComboBox:focus {{
 }}
 
 #browse_btn:hover {{
-    border-color: {ACCENT};
-    color: {ACCENT};
+    border-color: palette(highlight);
+    color: palette(highlight);
 }}
 
 /* Progress */
@@ -216,7 +215,7 @@ QComboBox:focus {{
 #progress_pct {{
     font-size: 12px;
     font-weight: 600;
-    color: {ACCENT};
+    color: palette(highlight);
 }}
 
 QProgressBar {{
@@ -226,7 +225,7 @@ QProgressBar {{
 }}
 
 QProgressBar::chunk {{
-    background: {ACCENT};
+    background: palette(highlight);
     border-radius: 2px;
 }}
 
@@ -291,8 +290,8 @@ QProgressBar::chunk {{
 }}
 
 #remove_btn:hover {{
-    border-color: #E24B4A;
-    color: #E24B4A;
+    border-color: palette(highlight);
+    color: palette(highlight);
 }}
 
 /* Context menu */
@@ -310,8 +309,8 @@ QMenu::item {{
 }}
 
 QMenu::item:selected {{
-    background: {ACCENT};
-    color: white;
+    background: palette(highlight);
+    color: palette(highlightedText);
 }}
 
 QMenu::separator {{
@@ -425,7 +424,8 @@ class MainWindow(QMainWindow):
         theme_label.setStyleSheet("font-size: 11px; color: palette(placeholderText);")
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(self.theme_manager.get_theme_names())
-        self.theme_combo.setCurrentText(self.config.get("theme", "Modern Dark"))
+        current_theme = self.theme_manager.resolve_theme_name(self.config.get("theme", "Modern Dark"))
+        self.theme_combo.setCurrentText(current_theme)
         self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
         self.theme_combo.setMaximumWidth(120)
         self.theme_combo.setStyleSheet("font-size: 11px;")
@@ -473,6 +473,12 @@ class MainWindow(QMainWindow):
         add_btn.clicked.connect(self._open_wizard)
         sb_lay.addWidget(add_btn)
 
+        import_btn = QPushButton("Import tool...")
+        import_btn.setObjectName("add_tool_btn")
+        import_btn.setCursor(Qt.PointingHandCursor)
+        import_btn.clicked.connect(self._import_tool)
+        sb_lay.addWidget(import_btn)
+
         root.addWidget(sidebar)
 
         # Main content area (stacked)
@@ -491,18 +497,25 @@ class MainWindow(QMainWindow):
 
     def _apply_theme(self):
         theme_name = self.config.get("theme", "Modern Dark")
-        palette = self.theme_manager.get_palette(theme_name)
-        # Apply palette application-wide so all widgets respect it
-        QApplication.instance().setPalette(palette)
+        self.theme_manager.apply(QApplication.instance(), theme_name)
+        self._refresh_styles()
 
     def _on_theme_changed(self, theme_name: str):
         self.config.set("theme", theme_name)
         self.config.save()
-        palette = self.theme_manager.get_palette(theme_name)
-        QApplication.instance().setPalette(palette)
-        # Refresh all panels
-        for panel in self._panels.values():
-            panel.setPalette(palette)
+        self.theme_manager.apply(QApplication.instance(), theme_name)
+        self._refresh_styles()
+
+    def _refresh_styles(self):
+        app = QApplication.instance()
+        app.setStyleSheet("")
+        app.setStyleSheet(STYLESHEET)
+        self.setStyleSheet("")
+        self.setStyleSheet(STYLESHEET)
+        for widget in app.allWidgets():
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update()
 
     def _load_tools(self):
         self._tools = load_tools(self.tools_dir)
@@ -584,8 +597,11 @@ class MainWindow(QMainWindow):
         export_path = Path.home() / "Downloads" / f"{export_name}.toolpouch"
         
         try:
-            shutil.make_archive(str(export_path.with_suffix('')), 'zip', tool.folder.parent, tool.folder.name)
-            QMessageBox.information(self, "Tool exported", f"Tool exported to:\n{export_path}.zip")
+            zip_path = Path(shutil.make_archive(str(export_path.with_suffix("")), "zip", tool.folder.parent, tool.folder.name))
+            if export_path.exists():
+                export_path.unlink()
+            zip_path.replace(export_path)
+            QMessageBox.information(self, "Tool exported", f"Tool exported to:\n{export_path}")
         except Exception as e:
             QMessageBox.critical(self, "Export failed", f"Could not export tool:\n{e}")
 
@@ -625,6 +641,28 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self._load_tools()
             QMessageBox.information(self, "Tool added", "Tool created successfully. It now appears in the sidebar.")
+
+    def _import_tool(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Tool",
+            "",
+            "ToolPouch Packages (*.toolpouch);;All Files (*)",
+        )
+        if not file_path:
+            return
+
+        try:
+            dest_dir = import_tool_package(Path(file_path), self.tools_dir)
+        except ToolImportError as e:
+            QMessageBox.critical(self, "Import failed", str(e))
+            return
+        except Exception as e:
+            QMessageBox.critical(self, "Import failed", f"Could not import tool:\n{e}")
+            return
+
+        self._load_tools()
+        QMessageBox.information(self, "Tool imported", f"Tool imported to:\n{dest_dir}")
 
     def closeEvent(self, event):
         # Save window geometry

@@ -1,0 +1,30 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build and packaging output
+build/
+dist/
+*.spec
+
+# ToolPouch local runtime/config artifacts
+.toolpouch/
+*.toolpouch
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

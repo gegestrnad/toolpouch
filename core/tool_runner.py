@@ -13,9 +13,10 @@ def _get_python_and_env() -> tuple[str, dict]:
 
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).parent
+        runtime_dir = exe_dir / "runtime"
 
-        # PyInstaller 6+ puts python.exe inside _internal/
         candidates = [
+            runtime_dir / "python.exe",
             exe_dir / "python.exe",
             exe_dir / "_internal" / "python.exe",
         ]
@@ -25,14 +26,15 @@ def _get_python_and_env() -> tuple[str, dict]:
                 python = str(p)
                 break
 
-        # Inject packages/ into PYTHONPATH so scripts find requests, reportlab, etc.
-        packages_dir = exe_dir / "packages"
-        if packages_dir.exists():
+        site_packages = runtime_dir / "Lib" / "site-packages"
+        if site_packages.exists():
             existing = env.get("PYTHONPATH", "")
-            env["PYTHONPATH"] = str(packages_dir) + (os.pathsep + existing if existing else "")
+            env["PYTHONPATH"] = str(site_packages) + (os.pathsep + existing if existing else "")
 
-        # Clear PYTHONHOME -- the bundled python.exe sets its own
-        env.pop("PYTHONHOME", None)
+        if runtime_dir.exists():
+            env["PYTHONHOME"] = str(runtime_dir)
+        else:
+            env.pop("PYTHONHOME", None)
     else:
         python = sys.executable
 
