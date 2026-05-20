@@ -12,6 +12,16 @@ ICONS = [
 ]
 
 
+def _escape_toml_string(s: str) -> str:
+    """FIX: Escape quotes and special characters for TOML strings."""
+    s = s.replace("\\", "\\\\")
+    s = s.replace('"', '\\"')
+    s = s.replace("\n", "\\n")
+    s = s.replace("\r", "\\r")
+    s = s.replace("\t", "\\t")
+    return s
+
+
 def generate_toml(
     name: str,
     description: str,
@@ -20,6 +30,10 @@ def generate_toml(
     long_running: bool,
     params: list[dict],
 ) -> str:
+    # Escape all user inputs
+    name = _escape_toml_string(name)
+    description = _escape_toml_string(description)
+    
     lines = [
         "[tool]",
         f'name = "{name}"',
@@ -32,22 +46,22 @@ def generate_toml(
 
     for p in params:
         lines.append("[[params]]")
-        lines.append(f'id = "{p["id"]}"')
-        lines.append(f'label = "{p["label"]}"')
+        lines.append(f'id = "{_escape_toml_string(p["id"])}"')
+        lines.append(f'label = "{_escape_toml_string(p["label"])}"')
         lines.append(f'type = "{p["type"]}"')
         if p.get("placeholder"):
-            lines.append(f'placeholder = "{p["placeholder"]}"')
+            lines.append(f'placeholder = "{_escape_toml_string(p["placeholder"])}"')
         if p.get("required"):
             lines.append(f'required = true')
         if p.get("icon"):
             lines.append(f'icon = "{p["icon"]}"')
         if p.get("filter"):
-            lines.append(f'filter = "{p["filter"]}"')
+            lines.append(f'filter = "{_escape_toml_string(p["filter"])}"')
         if p.get("options"):
-            opts = ", ".join(f'"{o}"' for o in p["options"])
+            opts = ", ".join(f'"{_escape_toml_string(o)}"' for o in p["options"])
             lines.append(f"options = [{opts}]")
         if p.get("default"):
-            lines.append(f'default = "{p["default"]}"')
+            lines.append(f'default = "{_escape_toml_string(p["default"])}"')
         lines.append("")
 
     return "\n".join(lines)

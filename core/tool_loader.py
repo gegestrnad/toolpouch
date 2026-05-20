@@ -38,6 +38,8 @@ class ToolDefinition:
     long_running: bool
     params: list[ToolParam]
     folder: Path
+    script_exists: bool = True
+    errors: list[str] = field(default_factory=list)
 
 
 def load_tools(tools_dir: Path) -> list[ToolDefinition]:
@@ -64,6 +66,12 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
             script_name = tool_data.get("script", "")
             script_path = tool_folder / script_name
 
+            # FIX: Validate script existence
+            script_exists = script_path.exists()
+            errors = []
+            if not script_exists:
+                errors.append(f"Script not found: {script_name}")
+
             params = [
                 ToolParam(
                     id=p.get("id", ""),
@@ -87,6 +95,8 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
                 long_running=tool_data.get("long_running", False),
                 params=params,
                 folder=tool_folder,
+                script_exists=script_exists,
+                errors=errors,
             ))
 
         except Exception as e:

@@ -4,14 +4,17 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QLineEdit, QPushButton, QFrame, QStackedWidget,
-    QScrollArea, QSizePolicy, QMessageBox, QMenu,
+    QScrollArea, QSizePolicy, QMessageBox, QMenu, QComboBox,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 
 from core.tool_loader import ToolDefinition, load_tools
+from core.config import ConfigManager
 from ui.tool_panel import ToolPanel
 from ui.wizard_dialog import WizardDialog
+from ui.themes import ThemeManager
 
 
 ACCENT = "#534AB7"
@@ -339,9 +342,23 @@ class MainWindow(QMainWindow):
     def __init__(self, tools_dir: Path):
         super().__init__()
         self.tools_dir = tools_dir
+        self.config = ConfigManager()
+        self.theme_manager = ThemeManager()
+        
         self.setWindowTitle("Tool Pouch")
         self.setMinimumSize(QSize(860, 580))
-        self.resize(1000, 680)
+        
+        # Restore window geometry from config
+        geometry = self.config.get("window.geometry", None)
+        if geometry:
+            try:
+                self.restoreGeometry(geometry)
+            except Exception:
+                # If restore fails, ignore and continue with default size
+                pass
+        else:
+            self.resize(1000, 680)
+        
         self._set_window_icon()
 
         self._tools: list[ToolDefinition] = []
@@ -350,6 +367,7 @@ class MainWindow(QMainWindow):
         self._active_btn: ToolButton | None = None
 
         self._build_ui()
+        self._apply_theme()
         self._load_tools()
 
     def _set_window_icon(self):
@@ -400,6 +418,21 @@ class MainWindow(QMainWindow):
         self.search_input.textChanged.connect(self._filter_tools)
         hdr_lay.addSpacing(8)
         hdr_lay.addWidget(self.search_input)
+
+        # Theme selector
+        theme_lay = QHBoxLayout()
+        theme_label = QLabel("Theme:")
+        theme_label.setStyleSheet("font-size: 11px; color: palette(placeholderText);")
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(self.theme_manager.get_theme_names())
+        self.theme_combo.setCurrentText(self.config.get("theme", "Modern Dark"))
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        self.theme_combo.setMaximumWidth(120)
+        self.theme_combo.setStyleSheet("font-size: 11px;")
+        theme_lay.addWidget(theme_label)
+        theme_lay.addWidget(self.theme_combo)
+        hdr_lay.addSpacing(6)
+        hdr_lay.addLayout(theme_lay)
 
         sb_lay.addWidget(hdr)
 
@@ -456,9 +489,27 @@ class MainWindow(QMainWindow):
 
         root.addWidget(self.stack)
 
+    def _apply_theme(self):
+        theme_name = self.config.get("theme", "Modern Dark")
+        palette = self.theme_manager.get_palette(theme_name)
+        # Apply palette application-wide so all widgets respect it
+        QApplication.instance().setPalette(palette)
+
+    def _on_theme_changed(self, theme_name: str):
+        self.config.set("theme", theme_name)
+        self.config.save()
+        palette = self.theme_manager.get_palette(theme_name)
+        QApplication.instance().setPalette(palette)
+        # Refresh all panels
+        for panel in self._panels.values():
+            panel.setPalette(palette)
+
     def _load_tools(self):
         self._tools = load_tools(self.tools_dir)
-        self.version_lbl.setText(f"{len(self._tools)} tool{'s' if len(self._tools) != 1 else ''} loaded")
+        # FIX: Correct plural logic
+        tool_count = len(self._tools)
+        tool_word = "tool" if tool_count == 1 else "tools"
+        self.version_lbl.setText(f"{tool_count} {tool_word} loaded")
 
         for btn in self._tool_buttons:
             btn.setParent(None)
@@ -500,6 +551,7 @@ class MainWindow(QMainWindow):
     def _show_tool_context_menu(self, pos, tool, btn):
         menu = QMenu(self)
         edit_action = menu.addAction("Edit tool...")
+        export_action = menu.addAction("Export tool...")
         menu.addSeparator()
         delete_action = menu.addAction("Delete tool")
         delete_action.setProperty("danger", True)
@@ -507,6 +559,8 @@ class MainWindow(QMainWindow):
         action = menu.exec(btn.mapToGlobal(pos))
         if action == edit_action:
             self._edit_tool(tool)
+        elif action == export_action:
+            self._export_tool(tool)
         elif action == delete_action:
             self._delete_tool(tool, btn)
 
@@ -520,6 +574,20 @@ class MainWindow(QMainWindow):
                 old_panel.deleteLater()
             self._active_btn = None
             self._load_tools()
+
+    def _export_tool(self, tool):
+        import shutil
+        from datetime import datetime
+        
+        # Create a .toolpouch export file
+        export_name = f"{tool.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        export_path = Path.home() / "Downloads" / f"{export_name}.toolpouch"
+        
+        try:
+            shutil.make_archive(str(export_path.with_suffix('')), 'zip', tool.folder.parent, tool.folder.name)
+            QMessageBox.information(self, "Tool exported", f"Tool exported to:\n{export_path}.zip")
+        except Exception as e:
+            QMessageBox.critical(self, "Export failed", f"Could not export tool:\n{e}")
 
     def _delete_tool(self, tool, btn):
         reply = QMessageBox.question(
@@ -557,3 +625,13 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self._load_tools()
             QMessageBox.information(self, "Tool added", "Tool created successfully. It now appears in the sidebar.")
+
+    def closeEvent(self, event):
+        # Save window geometry
+        try:
+            geom = self.saveGeometry()
+            self.config.set("window.geometry", geom)
+            self.config.save()
+        except Exception:
+            pass
+        super().closeEvent(event)
