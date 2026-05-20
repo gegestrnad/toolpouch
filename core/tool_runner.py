@@ -5,6 +5,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
+from core.config import ConfigManager
+
 
 def _get_python_and_env() -> tuple[str, dict]:
     env = os.environ.copy()
@@ -46,15 +48,18 @@ class ToolRunner(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._process: QProcess | None = None
+        self.config = ConfigManager()
+        self._output_buffer = []
 
-    def run(self, script_path: Path, args: list[str]):
+    def run(self, script_path: Path, args: list[str], tool_name: str = ""):
         if self._process and self._process.state() != QProcess.NotRunning:
             return
 
+        self._output_buffer = []
         self._process = QProcess(self)
         self._process.setProcessChannelMode(QProcess.MergedChannels)
         self._process.readyReadStandardOutput.connect(self._on_output)
-        self._process.finished.connect(self._on_finished)
+        self._process.finished.connect(lambda code, status: self._on_finished(code, status, tool_name))
 
         python, env = _get_python_and_env()
 
@@ -78,6 +83,8 @@ class ToolRunner(QObject):
             line = line.strip()
             if not line:
                 continue
+            
+            self._output_buffer.append(line)
 
             if line.startswith("PROGRESS:"):
                 try:
@@ -97,8 +104,14 @@ class ToolRunner(QObject):
 
             self.log_line.emit(line, level)
 
-    def _on_finished(self, exit_code: int, _exit_status):
+    def _on_finished(self, exit_code: int, _exit_status, tool_name: str = ""):
         success = exit_code == 0
+        
+        # FIX: Log full output without truncation
+        if tool_name:
+            output = "\n".join(self._output_buffer[-100:])  # Keep last 100 lines
+            self.config.log_execution(tool_name, success, output)
+        
         self.progress.emit(100 if success else 0)
         self.status_changed.emit("done" if success else "error")
         self.finished.emit(success)

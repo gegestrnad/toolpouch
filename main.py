@@ -97,8 +97,11 @@ def ensure_packages(exe_dir: Path):
             print("[OK] Dependencies installed successfully.")
         else:
             print(f"[ERROR] pip failed (exit {result.returncode}):")
-            print(result.stdout[-2000:] if result.stdout else "")
-            print(result.stderr[-2000:] if result.stderr else "")
+            # FIX: Preserve full output instead of truncating
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
     except Exception as e:
         print(f"[ERROR] Could not run pip: {e}")
 
@@ -116,10 +119,8 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Tool Pouch")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("2.0.0")
     app.setOrganizationName("ToolPouch")
-
-    apply_dark_palette(app)
 
     exe_dir = _exe_dir()
     seed_assets(exe_dir)

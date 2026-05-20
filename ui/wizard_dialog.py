@@ -1,252 +1,397 @@
 from __future__ import annotations
-import shutil
 from pathlib import Path
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QCheckBox, QComboBox, QScrollArea, QWidget,
-    QFileDialog, QGroupBox, QFrame, QMessageBox,
+    QPushButton, QComboBox, QFileDialog, QCheckBox, QScrollArea,
+    QWidget, QMessageBox, QSpinBox, QTabWidget, QTextEdit,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QIcon
 
+from core.tool_loader import ToolDefinition
 from core.wizard import PARAM_TYPES, ICONS, generate_toml, write_tool
 
 
-class ParamRow(QFrame):
-    def __init__(self, parent=None, data: dict | None = None):
+class ParameterEditor(QWidget):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFrameShape(QFrame.StyledPanel)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(8, 6, 8, 6)
-        lay.setSpacing(6)
+        self.params = []
+        self._build_ui()
 
-        self.id_edit = QLineEdit(placeholderText="id (no spaces)")
-        self.id_edit.setFixedWidth(110)
-        self.label_edit = QLineEdit(placeholderText="Label")
-        self.label_edit.setFixedWidth(130)
+    def _build_ui(self):
+        self.layout = QVBoxLayout(self)
+        self.add_param_btn = QPushButton("+ Add Parameter")
+        self.add_param_btn.clicked.connect(self._add_param)
+        self.layout.addWidget(self.add_param_btn)
+        self.layout.addStretch()
+
+    def _add_param(self):
+        param_widget = ParameterWidget(len(self.params), self._remove_param)
+        self.layout.insertWidget(self.layout.count() - 1, param_widget)
+        self.params.append(param_widget)
+
+    def _remove_param(self, index: int):
+        if 0 <= index < len(self.params):
+            widget = self.params.pop(index)
+            widget.setParent(None)
+            # Re-index remaining params
+            for i, param in enumerate(self.params):
+                param.set_index(i)
+
+    def get_params(self) -> list[dict]:
+        return [p.get_data() for p in self.params]
+
+
+class ParameterWidget(QWidget):
+    def __init__(self, index: int, on_remove_callback, parent=None):
+        super().__init__(parent)
+        self.index = index
+        self.on_remove_callback = on_remove_callback
+        self._build_ui()
+
+    def _build_ui(self):
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 10, 10, 10)
+        lay.setSpacing(8)
+
+        header = QHBoxLayout()
+        title_label = QLabel(f"Parameter #{self.index + 1}")
+        title_label.setFont(QFont("Arial", 11, QFont.Bold))
+        header.addWidget(title_label)
+        header.addStretch()
+        remove_btn = QPushButton("Remove")
+        remove_btn.setMaximumWidth(80)
+        remove_btn.setStyleSheet("background: #E24B4A; color: white; border: none; border-radius: 4px; padding: 4px;")
+        remove_btn.clicked.connect(lambda: self.on_remove_callback(self.index))
+        header.addWidget(remove_btn)
+        lay.addLayout(header)
+
+        # Param ID
+        id_lay = QHBoxLayout()
+        id_label = QLabel("Parameter ID:")
+        id_label.setStyleSheet("font-weight: bold;")
+        self.id_input = QLineEdit()
+        self.id_input.setPlaceholderText("e.g., input_file (use underscores)")
+        self.id_input.setToolTip("Unique identifier used as --param_id in scripts")
+        id_lay.addWidget(id_label)
+        id_lay.addWidget(self.id_input)
+        lay.addLayout(id_lay)
+
+        # Label
+        label_lay = QHBoxLayout()
+        label_label = QLabel("Display Label:")
+        label_label.setStyleSheet("font-weight: bold;")
+        self.label_input = QLineEdit()
+        self.label_input.setPlaceholderText("e.g., Input File")
+        label_lay.addWidget(label_label)
+        label_lay.addWidget(self.label_input)
+        lay.addLayout(label_lay)
+
+        # Type
+        type_lay = QHBoxLayout()
+        type_label = QLabel("Type:")
+        type_label.setStyleSheet("font-weight: bold;")
         self.type_combo = QComboBox()
         self.type_combo.addItems(PARAM_TYPES)
-        self.type_combo.setFixedWidth(90)
-        self.placeholder_edit = QLineEdit(placeholderText="Placeholder text")
-        self.required_cb = QCheckBox("Required")
-        self.required_cb.setFixedWidth(75)
+        self.type_combo.currentTextChanged.connect(self._on_type_changed)
+        type_lay.addWidget(type_label)
+        type_lay.addWidget(self.type_combo)
+        lay.addLayout(type_lay)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(26, 26)
-        remove_btn.setObjectName("remove_btn")
-        remove_btn.clicked.connect(self._remove)
+        # Placeholder
+        placeholder_lay = QHBoxLayout()
+        placeholder_label = QLabel("Placeholder:")
+        placeholder_label.setStyleSheet("font-weight: bold;")
+        self.placeholder_input = QLineEdit()
+        self.placeholder_input.setPlaceholderText("Optional hint text")
+        placeholder_lay.addWidget(placeholder_label)
+        placeholder_lay.addWidget(self.placeholder_input)
+        lay.addLayout(placeholder_lay)
 
-        for w in [self.id_edit, self.label_edit, self.type_combo,
-                  self.placeholder_edit, self.required_cb, remove_btn]:
-            lay.addWidget(w)
+        # Icon
+        icon_lay = QHBoxLayout()
+        icon_label = QLabel("Icon:")
+        icon_label.setStyleSheet("font-weight: bold;")
+        self.icon_combo = QComboBox()
+        self.icon_combo.addItems(ICONS)
+        icon_lay.addWidget(icon_label)
+        icon_lay.addWidget(self.icon_combo)
+        lay.addLayout(icon_lay)
 
-        # Pre-fill if editing existing param
-        if data:
-            self.id_edit.setText(data.get("id", ""))
-            self.label_edit.setText(data.get("label", ""))
-            t = data.get("type", "text")
-            if t in PARAM_TYPES:
-                self.type_combo.setCurrentText(t)
-            self.placeholder_edit.setText(data.get("placeholder", ""))
-            self.required_cb.setChecked(data.get("required", False))
+        # Required
+        self.required_check = QCheckBox("Required parameter")
+        lay.addWidget(self.required_check)
 
-    def _remove(self):
-        self.setParent(None)
-        self.deleteLater()
+        # Options (for dropdowns)
+        self.options_lay = QHBoxLayout()
+        options_label = QLabel("Options (comma-separated):")
+        options_label.setStyleSheet("font-weight: bold;")
+        self.options_input = QLineEdit()
+        self.options_input.setPlaceholderText("e.g., option1, option2, option3")
+        self.options_input.setVisible(False)
+        self.options_lay.addWidget(options_label)
+        self.options_lay.addWidget(self.options_input)
+        lay.addLayout(self.options_lay)
 
-    def to_dict(self) -> dict:
+        # Default
+        default_lay = QHBoxLayout()
+        default_label = QLabel("Default Value:")
+        default_label.setStyleSheet("font-weight: bold;")
+        self.default_input = QLineEdit()
+        self.default_input.setPlaceholderText("Optional default value")
+        default_lay.addWidget(default_label)
+        default_lay.addWidget(self.default_input)
+        lay.addLayout(default_lay)
+
+        lay.addSpacing(10)
+        sep = QWidget()
+        sep.setStyleSheet("background: #3D3D3D; min-height: 1px;")
+        lay.addWidget(sep)
+
+    def _on_type_changed(self, type_name: str):
+        self.options_input.setVisible(type_name == "dropdown")
+
+    def set_index(self, index: int):
+        self.index = index
+
+    def get_data(self) -> dict:
         return {
-            "id": self.id_edit.text().strip(),
-            "label": self.label_edit.text().strip(),
+            "id": self.id_input.text().strip(),
+            "label": self.label_input.text().strip(),
             "type": self.type_combo.currentText(),
-            "placeholder": self.placeholder_edit.text().strip(),
-            "required": self.required_cb.isChecked(),
-            "icon": "ti-settings",
+            "placeholder": self.placeholder_input.text().strip(),
+            "icon": self.icon_combo.currentText(),
+            "required": self.required_check.isChecked(),
+            "options": [o.strip() for o in self.options_input.text().split(",") if o.strip()],
+            "default": self.default_input.text().strip(),
         }
 
 
 class WizardDialog(QDialog):
-    def __init__(self, tools_dir: Path, parent=None, edit_tool=None):
-        """
-        edit_tool: ToolDefinition to edit, or None for create mode.
-        """
+    def __init__(self, tools_dir: Path, parent=None, edit_tool: ToolDefinition | None = None):
         super().__init__(parent)
         self.tools_dir = tools_dir
         self.edit_tool = edit_tool
-        self.script_path: Path | None = None
-        self._edit_mode = edit_tool is not None
-
-        title = f"Edit tool — {edit_tool.name}" if self._edit_mode else "Add new tool"
-        self.setWindowTitle(title)
-        self.setMinimumWidth(720)
+        self.selected_script = None
+        
+        if edit_tool:
+            self.setWindowTitle(f"Edit Tool: {edit_tool.name}")
+        else:
+            self.setWindowTitle("Create New Tool")
+        
+        self.setMinimumWidth(600)
         self._build_ui()
-
-        if self._edit_mode:
-            self._prefill(edit_tool)
+        
+        if edit_tool:
+            self._load_tool_data(edit_tool)
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setSpacing(14)
-        root.setContentsMargins(20, 20, 20, 20)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
 
-        root.addWidget(QLabel("<b>Tool metadata</b>"))
+        # Title
+        title = QLabel("Tool Configuration Wizard" if not self.edit_tool else "Edit Tool")
+        title.setFont(QFont("Arial", 14, QFont.Bold))
+        layout.addWidget(title)
 
-        meta_box = QGroupBox()
-        meta_lay = QVBoxLayout(meta_box)
-        meta_lay.setSpacing(8)
+        # Description
+        desc = QLabel(
+            "Create a powerful tool by configuring its metadata and parameters. "
+            "Each parameter becomes a field in the tool's UI."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #888888; font-size: 12px;")
+        layout.addWidget(desc)
 
-        def row(label, widget):
-            h = QHBoxLayout()
-            lbl = QLabel(label)
-            lbl.setFixedWidth(120)
-            h.addWidget(lbl)
-            h.addWidget(widget)
-            meta_lay.addLayout(h)
+        # Tool Info Tab
+        tabs = QTabWidget()
+        
+        # Basic Info
+        basic_widget = QWidget()
+        basic_lay = QVBoxLayout(basic_widget)
+        basic_lay.setSpacing(10)
 
-        self.name_edit = QLineEdit(placeholderText="e.g. My Scraper")
-        self.desc_edit = QLineEdit(placeholderText="One-line description")
-        self.folder_edit = QLineEdit(placeholderText="e.g. my_scraper (no spaces)")
+        # Tool Name
+        name_lay = QHBoxLayout()
+        name_label = QLabel("Tool Name:")
+        name_label.setStyleSheet("font-weight: bold; min-width: 120px;")
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("e.g., My Awesome Tool")
+        self.name_input.setToolTip("The name displayed in the sidebar")
+        name_lay.addWidget(name_label)
+        name_lay.addWidget(self.name_input)
+        basic_lay.addLayout(name_lay)
 
+        # Description
+        desc_lay = QVBoxLayout()
+        desc_label = QLabel("Description:")
+        desc_label.setStyleSheet("font-weight: bold;")
+        self.desc_input = QTextEdit()
+        self.desc_input.setPlaceholderText("One-line description of what this tool does")
+        self.desc_input.setMaximumHeight(60)
+        self.desc_input.setToolTip("Brief description shown in the UI")
+        desc_lay.addWidget(desc_label)
+        desc_lay.addWidget(self.desc_input)
+        basic_lay.addLayout(desc_lay)
+
+        # Icon
+        icon_lay = QHBoxLayout()
+        icon_label = QLabel("Icon:")
+        icon_label.setStyleSheet("font-weight: bold; min-width: 120px;")
         self.icon_combo = QComboBox()
         self.icon_combo.addItems(ICONS)
-        self.long_cb = QCheckBox("Long-running (shows active progress bar)")
+        icon_lay.addWidget(icon_label)
+        icon_lay.addWidget(self.icon_combo)
+        basic_lay.addLayout(icon_lay)
 
-        row("Display name *", self.name_edit)
-        row("Description *", self.desc_edit)
+        # Script File
+        script_lay = QHBoxLayout()
+        script_label = QLabel("Script File:")
+        script_label.setStyleSheet("font-weight: bold; min-width: 120px;")
+        self.script_input = QLineEdit()
+        self.script_input.setReadOnly(True)
+        self.script_input.setPlaceholderText("Click Browse to select your Python script")
+        browse_btn = QPushButton("Browse...")
+        browse_btn.setMaximumWidth(100)
+        browse_btn.clicked.connect(self._select_script)
+        script_lay.addWidget(script_label)
+        script_lay.addWidget(self.script_input)
+        script_lay.addWidget(browse_btn)
+        basic_lay.addLayout(script_lay)
 
-        if self._edit_mode:
-            # Folder is locked in edit mode -- renaming a tool folder is
-            # more trouble than it's worth (breaks cached panels, etc.)
-            self.folder_edit.setReadOnly(True)
-            self.folder_edit.setToolTip("Folder name cannot be changed after creation.")
-            folder_note = QLabel("Folder name (locked)")
-        else:
-            folder_note = QLabel("Folder name *")
-        row(folder_note.text(), self.folder_edit)
+        # Long Running
+        self.long_running_check = QCheckBox("This tool runs for a long time (show progress bar)")
+        basic_lay.addWidget(self.long_running_check)
 
-        row("Icon", self.icon_combo)
-        meta_lay.addWidget(self.long_cb)
+        basic_lay.addStretch()
+        tabs.addTab(basic_widget, "Basic Info")
 
-        # Script row
-        script_h = QHBoxLayout()
-        script_lbl = QLabel("Script file" + (" *" if not self._edit_mode else ""))
-        script_lbl.setFixedWidth(120)
-        self.script_edit = QLineEdit(
-            readOnly=True,
-            placeholderText="Select .py file..." if not self._edit_mode else "Leave blank to keep existing script",
-        )
-        browse_btn = QPushButton("Browse…")
-        browse_btn.clicked.connect(self._browse_script)
-        script_h.addWidget(script_lbl)
-        script_h.addWidget(self.script_edit)
-        script_h.addWidget(browse_btn)
-        meta_lay.addLayout(script_h)
-
-        root.addWidget(meta_box)
-
-        root.addWidget(QLabel("<b>Parameters</b>"))
+        # Parameters Tab
+        param_widget = QWidget()
+        param_lay = QVBoxLayout(param_widget)
+        
+        param_info = QLabel("Define input parameters for your tool. Each will become a field in the UI.")
+        param_info.setWordWrap(True)
+        param_info.setStyleSheet("color: #888888; font-size: 11px;")
+        param_lay.addWidget(param_info)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFixedHeight(200)
-        self.params_widget = QWidget()
-        self.params_layout = QVBoxLayout(self.params_widget)
-        self.params_layout.setAlignment(Qt.AlignTop)
-        self.params_layout.setSpacing(4)
-        scroll.setWidget(self.params_widget)
-        root.addWidget(scroll)
+        self.param_editor = ParameterEditor()
+        scroll.setWidget(self.param_editor)
+        param_lay.addWidget(scroll)
+        
+        tabs.addTab(param_widget, "Parameters")
 
-        add_param_btn = QPushButton("+ Add parameter")
-        add_param_btn.clicked.connect(self._add_param)
-        root.addWidget(add_param_btn)
+        layout.addWidget(tabs)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
+        # Buttons
+        btn_lay = QHBoxLayout()
+        btn_lay.addStretch()
+        
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumWidth(100)
         cancel_btn.clicked.connect(self.reject)
-        label = "Save changes" if self._edit_mode else "Create tool"
-        self.create_btn = QPushButton(label)
-        self.create_btn.setDefault(True)
-        self.create_btn.clicked.connect(self._save)
-        btn_row.addWidget(cancel_btn)
-        btn_row.addWidget(self.create_btn)
-        root.addLayout(btn_row)
+        btn_lay.addWidget(cancel_btn)
+        
+        create_btn = QPushButton("Create Tool" if not self.edit_tool else "Update Tool")
+        create_btn.setMinimumWidth(100)
+        create_btn.setStyleSheet("background: #534AB7; color: white; border: none; border-radius: 4px; font-weight: bold;")
+        create_btn.clicked.connect(self._create_tool)
+        btn_lay.addWidget(create_btn)
+        
+        layout.addLayout(btn_lay)
 
-    def _prefill(self, tool):
-        """Populate all fields from existing ToolDefinition."""
-        self.name_edit.setText(tool.name)
-        self.desc_edit.setText(tool.description)
-        self.folder_edit.setText(tool.folder.name)
-
-        if tool.icon in ICONS:
-            self.icon_combo.setCurrentText(tool.icon)
-        self.long_cb.setChecked(tool.long_running)
-
-        # Show existing script name (read-only display)
-        self.script_edit.setText(tool.script_path.name)
-        # Keep a reference to the existing script so we don't require re-selection
-        self.script_path = tool.script_path
-
-        # Pre-fill param rows
-        for param in tool.params:
-            row = ParamRow(data={
-                "id": param.id,
-                "label": param.label,
-                "type": param.type,
-                "placeholder": param.placeholder,
-                "required": param.required,
-            })
-            self.params_layout.addWidget(row)
-
-    def _browse_script(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select script", "", "Python files (*.py)")
-        if path:
-            self.script_path = Path(path)
-            self.script_edit.setText(path)
-            if not self._edit_mode and not self.folder_edit.text():
-                self.folder_edit.setText(self.script_path.stem.lower().replace(" ", "_"))
-
-    def _add_param(self):
-        self.params_layout.addWidget(ParamRow())
-
-    def _save(self):
-        name = self.name_edit.text().strip()
-        desc = self.desc_edit.text().strip()
-        folder = self.folder_edit.text().strip()
-
-        if not name or not desc or not folder:
-            QMessageBox.warning(self, "Missing fields", "Name, description, and folder are all required.")
-            return
-
-        if not self._edit_mode and not self.script_path:
-            QMessageBox.warning(self, "Missing fields", "Please select a script file.")
-            return
-
-        params = []
-        for i in range(self.params_layout.count()):
-            w = self.params_layout.itemAt(i).widget()
-            if isinstance(w, ParamRow):
-                d = w.to_dict()
-                if d["id"] and d["label"]:
-                    params.append(d)
-
-        toml = generate_toml(
-            name=name,
-            description=desc,
-            icon=self.icon_combo.currentText(),
-            script_filename=self.script_path.name if self.script_path else "",
-            long_running=self.long_cb.isChecked(),
-            params=params,
+    def _select_script(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Python Script",
+            "",
+            "Python Files (*.py);;All Files (*)"
         )
+        if file_path:
+            self.selected_script = Path(file_path)
+            self.script_input.setText(self.selected_script.name)
 
-        if self._edit_mode:
-            # Overwrite the existing tool.toml in place
-            toml_path = self.edit_tool.folder / "tool.toml"
-            toml_path.write_text(toml, encoding="utf-8")
-            # If user picked a new script, copy it over
-            if self.script_path and self.script_path != self.edit_tool.script_path:
-                shutil.copy2(self.script_path, self.edit_tool.folder / self.script_path.name)
+    def _load_tool_data(self, tool: ToolDefinition):
+        self.name_input.setText(tool.name)
+        self.desc_input.setText(tool.description)
+        self.icon_combo.setCurrentText(tool.icon)
+        self.script_input.setText(tool.script_path.name)
+        self.long_running_check.setChecked(tool.long_running)
+        
+        for param in tool.params:
+            self.param_editor._add_param()
+            param_widget = self.param_editor.params[-1]
+            param_widget.id_input.setText(param.id)
+            param_widget.label_input.setText(param.label)
+            param_widget.type_combo.setCurrentText(param.type)
+            param_widget.placeholder_input.setText(param.placeholder)
+            param_widget.icon_combo.setCurrentText(param.icon)
+            param_widget.required_check.setChecked(param.required)
+            param_widget.options_input.setText(", ".join(param.options))
+            param_widget.default_input.setText(param.default)
+            param_widget._on_type_changed(param.type)
+
+    def _create_tool(self):
+        # Validation
+        errors = []
+        
+        if not self.name_input.text().strip():
+            errors.append("Tool name is required")
+        if not self.desc_input.toPlainText().strip():
+            errors.append("Description is required")
+        
+        if self.edit_tool:
+            if not self.selected_script and not self.edit_tool.script_path.exists():
+                errors.append("Script file is required")
         else:
-            write_tool(self.tools_dir, folder, toml, self.script_path)
+            if not self.selected_script:
+                errors.append("You must select a script file")
 
-        self.accept()
+        # Validate parameters
+        for i, param_widget in enumerate(self.param_editor.params):
+            data = param_widget.get_data()
+            if not data["id"].replace("_", "").isalnum():
+                errors.append(f"Parameter #{i+1}: ID must be alphanumeric with underscores")
+            if not data["label"]:
+                errors.append(f"Parameter #{i+1}: Label is required")
+            if data["type"] == "dropdown" and not data["options"]:
+                errors.append(f"Parameter #{i+1}: Dropdown must have options")
+
+        if errors:
+            QMessageBox.warning(self, "Validation Error", "\n".join(errors))
+            return
+
+        # Create tool
+        try:
+            name = self.name_input.text().strip()
+            folder_name = name.lower().replace(" ", "_")
+            
+            script_path = self.selected_script if self.selected_script else self.edit_tool.script_path
+            
+            toml_content = generate_toml(
+                name=name,
+                description=self.desc_input.toPlainText().strip(),
+                icon=self.icon_combo.currentText(),
+                script_filename=script_path.name,
+                long_running=self.long_running_check.isChecked(),
+                params=self.param_editor.get_params(),
+            )
+
+            if self.edit_tool:
+                # Update existing tool
+                tool_dir = self.edit_tool.folder
+                toml_file = tool_dir / "tool.toml"
+                toml_file.write_text(toml_content, encoding="utf-8")
+                if self.selected_script:
+                    import shutil
+                    shutil.copy2(self.selected_script, tool_dir / self.selected_script.name)
+            else:
+                # Create new tool
+                write_tool(self.tools_dir, folder_name, toml_content, script_path)
+            
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to create tool:\n{e}")
