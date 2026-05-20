@@ -1,0 +1,156 @@
+name: Build latest ToolPouch release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to create or update. Leave blank to create a dated tag."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and publish Windows release
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Resolve release tag
+        id: release_tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag_name }}"
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            if ("${{ github.ref_type }}" -eq "tag") {
+              $tag = "${{ github.ref_name }}"
+            } else {
+              $tag = "v$(Get-Date -Format 'yyyy.MM.dd').${{ github.run_number }}"
+            }
+          }
+
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Create tag for manual release
+        if: github.ref_type != 'tag'
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          $tag = "${{ steps.release_tag.outputs.tag }}"
+          if (-not (git rev-parse -q --verify "refs/tags/$tag")) {
+            git tag $tag
+            git push origin $tag
+          }
+
+      - name: Build ToolPouch
+        shell: pwsh
+        run: |
+          $pythonExe = (python -c "import sys; print(sys.executable)").Trim()
+          $pythonHome = (python -c "import sys; print(sys.base_prefix)").Trim()
+
+          Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
+
+          pyinstaller `
+            --name "ToolPouch" `
+            --onedir `
+            --windowed `
+            --noupx `
+            --icon "assets\icon.ico" `
+            --add-data "tools;tools" `
+            --add-data "assets;assets" `
+            --hidden-import "PySide6.QtSvg" `
+            --hidden-import "PySide6.QtXml" `
+            --collect-all "deep_translator" `
+            --noconfirm `
+            main.py
+
+          $appDir = "dist\ToolPouch"
+          $runtimeDir = "$appDir\runtime"
+          $sitePackages = "$runtimeDir\Lib\site-packages"
+
+          robocopy "tools" "$appDir\tools" /E /XD __pycache__ /XF *.pyc
+          if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+
+          if (Test-Path "assets") {
+            robocopy "assets" "$appDir\assets" /E /XD __pycache__ /XF *.pyc
+            if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+          }
+
+          Remove-Item -Recurse -Force $runtimeDir -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $runtimeDir, $sitePackages | Out-Null
+
+          Copy-Item $pythonExe "$runtimeDir\python.exe" -Force
+          Copy-Item "$pythonHome\python*.dll" $runtimeDir -Force
+          Copy-Item "$pythonHome\vcruntime*.dll" $runtimeDir -Force -ErrorAction SilentlyContinue
+
+          if (Test-Path "$pythonHome\DLLs") {
+            robocopy "$pythonHome\DLLs" "$runtimeDir\DLLs" /E /XF *.pyc
+            if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+          }
+
+          robocopy "$pythonHome\Lib" "$runtimeDir\Lib" /E /XD __pycache__ site-packages test tests tkinter idlelib ensurepip /XF *.pyc
+          if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+
+          python -m pip install `
+            --upgrade `
+            --target "$sitePackages" `
+            --no-cache-dir `
+            requests `
+            beautifulsoup4 `
+            reportlab `
+            deep-translator
+
+      - name: Package release archive
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.release_tag.outputs.tag }}"
+          $archive = "ToolPouch-$tag-windows.zip"
+
+          if (Test-Path $archive) {
+            Remove-Item $archive -Force
+          }
+
+          Compress-Archive -Path "dist\ToolPouch" -DestinationPath $archive
+          "archive=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish latest GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.release_tag.outputs.tag }}"
+          $archive = $env:archive
+          $title = "ToolPouch $tag"
+          $notes = @"
+          Automated ToolPouch Windows build from commit ${{ github.sha }}.
+
+          Download and extract the ZIP, then run ToolPouch.exe from the ToolPouch folder.
+          "@
+
+          if (gh release view $tag *> $null) {
+            gh release edit $tag --title $title --notes $notes --latest
+            gh release upload $tag $archive --clobber
+          } else {
+            gh release create $tag $archive --title $title --notes $notes --latest
+          }
