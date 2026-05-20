@@ -4,6 +4,18 @@ A modular, extensible GUI for Python utility scripts. Drop in a new tool folder 
 
 ---
 
+## What's new (v2.0.0)
+
+- Improved and more foolproof Add Tool wizard (better validation, parameter editor, script selection, export/import)
+- Theme system with 5 built-in themes: Modern Dark, Deep Dark, Light Classic, Soft Light, High Contrast
+- Per-user configuration stored at ~/.toolpouch (theme, window geometry, recent tools)
+- Execution logging (logs in ~/.toolpouch/logs)
+- Tool export (.toolpouch as zip) and import support
+- Input validation and safer TOML generation (quotes escaped)
+- Better packaged runtime behavior when running as a PyInstaller bundle
+
+---
+
 ## Requirements
 
 - Python 3.11+
@@ -30,15 +42,30 @@ Output lands in `dist\ToolPouch\`. The entire folder is portable -- copy it anyw
 
 ---
 
+## Configuration & Logs
+
+User configuration and logs are saved to `~/.toolpouch/`:
+
+- `config.json` — user preferences (theme, window geometry, recent tools)
+- `logs/` — execution logs by date
+
+---
+
 ## Adding a New Tool
 
-### Option A: Use the in-app wizard
+### Option A: Use the in-app wizard (recommended)
 
 Click **"+ Add new tool"** at the bottom of the sidebar. The wizard will:
 1. Ask for metadata (name, description, icon)
-2. Let you pick your `.py` script
-3. Let you define input parameters (text fields, folder pickers, dropdowns, etc.)
-4. Generate `tool.toml` and copy your script into a new `tools/<folder>/` directory
+2. Let you pick your `.py` script (required)
+3. Let you define input parameters with validation (text fields, folder pickers, dropdowns, etc.)
+4. Generate `tool.toml` safely (user input is escaped) and copy your script into a new `tools/<folder>/` directory
+
+The wizard now validates:
+- Tool name and description are required
+- Script file must be selected
+- Parameter IDs must be alphanumeric + underscores
+- Dropdowns require options
 
 ### Option B: Drop it in manually
 
@@ -104,6 +131,18 @@ Restart Tool Pouch (or add via wizard) to pick up new tools.
 
 ---
 
+## Themes
+
+Choose a theme from the sidebar: two dark themes, two light themes, and a high-contrast theme are included.
+
+---
+
+## Export / Import Tools
+
+Right-click a tool in the sidebar to export it as a `.toolpouch` (ZIP). Import via the Add Tool wizard by selecting an existing `.toolpouch` or script.
+
+---
+
 ## Included Tools
 
 | Tool | Description |
@@ -113,3 +152,9 @@ Restart Tool Pouch (or add via wizard) to pick up new tools.
 | Cleanup TXT | Strips whitespace and blank lines from TXT files |
 | Pattern Remover | Removes/replaces regex patterns in TXT/MD files |
 | XHTML Converter | Converts HTML/XHTML to plain TXT or Markdown |
+
+---
+
+## Contributing
+
+PRs welcome. Please run the app locally and ensure the wizard validations and themes behave as expected.

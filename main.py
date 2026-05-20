@@ -7,7 +7,6 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 
 from ui.main_window import MainWindow
-from ui.theme import apply_dark_palette
 
 
 TOOL_DEPENDENCIES = [
