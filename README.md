@@ -2,6 +2,10 @@
 
 A modular, extensible GUI for Python utility scripts. Drop in a new tool folder and it appears automatically in the sidebar.
 
+![Screenshot 1](screenshot/screenshot_(1).jpg)
+![Screenshot 2](screenshot/screenshot_(2).jpg)
+![Screenshot 3](screenshot/screenshot_(3).jpg)
+
 ---
 
 ## What's new (v2.0.0)
