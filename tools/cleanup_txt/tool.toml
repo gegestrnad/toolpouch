@@ -1,14 +1,41 @@
 [tool]
-name = "Cleanup TXT"
-description = "Strips leading/trailing whitespace, removes blank lines, and collapses multiple spaces in all TXT files in a folder"
+name = "Text/Markdown Cleanup"
+description = "Cleans TXT and Markdown files by trimming whitespace, removing extra blank lines, and optionally normalizing Markdown"
 icon = "ti-eraser"
 script = "cleanup_txt.py"
 long_running = false
 
 [[params]]
 id = "input_dir"
-label = "Folder with TXT files"
+label = "Folder with text files"
 type = "folder"
-placeholder = "Select folder containing .txt files"
+placeholder = "Select folder containing .txt or .md files"
 required = true
 icon = "ti-folder"
+
+[[params]]
+id = "file_type"
+label = "File type"
+type = "dropdown"
+options = ["txt", "md", "txt and md"]
+default = "txt and md"
+required = true
+icon = "ti-file-text"
+
+[[params]]
+id = "blank_lines"
+label = "Blank lines"
+type = "dropdown"
+options = ["remove all", "collapse to one"]
+default = "collapse to one"
+required = true
+icon = "ti-align-left"
+
+[[params]]
+id = "markdown_mode"
+label = "Markdown cleanup"
+type = "dropdown"
+options = ["preserve", "normalize"]
+default = "normalize"
+required = true
+icon = "ti-markdown"

@@ -1,0 +1,40 @@
+[tool]
+name = "Filename Cleaner"
+description = "Batch-cleans filenames by trimming whitespace, removing unsafe characters, and normalizing spaces"
+icon = "ti-abc"
+script = "filename_cleaner.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with files"
+type = "folder"
+placeholder = "Select folder containing files to rename"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "file_glob"
+label = "File glob"
+type = "text"
+placeholder = "*.*"
+required = false
+icon = "ti-filter"
+
+[[params]]
+id = "style"
+label = "Cleanup style"
+type = "dropdown"
+options = ["safe preserve case", "safe lowercase", "spaces to underscores only"]
+default = "safe preserve case"
+required = true
+icon = "ti-text-size"
+
+[[params]]
+id = "mode"
+label = "Mode"
+type = "dropdown"
+options = ["preview", "rename"]
+default = "preview"
+required = true
+icon = "ti-eye"

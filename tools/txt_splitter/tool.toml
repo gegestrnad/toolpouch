@@ -1,0 +1,48 @@
+[tool]
+name = "TXT Splitter"
+description = "Splits a large TXT file into smaller parts by lines, characters, or chapter markers"
+icon = "ti-cut"
+script = "txt_splitter.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "Input TXT file"
+type = "file"
+filter = "*.txt"
+placeholder = "Select a TXT file"
+required = true
+icon = "ti-file-text"
+
+[[params]]
+id = "output_dir"
+label = "Output folder"
+type = "folder"
+placeholder = "Leave blank to create a folder beside the input file"
+required = false
+icon = "ti-folder-export"
+
+[[params]]
+id = "split_by"
+label = "Split by"
+type = "dropdown"
+options = ["lines", "characters", "chapter marker"]
+default = "lines"
+required = true
+icon = "ti-arrows-split"
+
+[[params]]
+id = "size"
+label = "Lines or characters per part"
+type = "text"
+placeholder = "1000"
+required = false
+icon = "ti-list-numbers"
+
+[[params]]
+id = "chapter_pattern"
+label = "Chapter regex"
+type = "text"
+placeholder = "^Chapter\\s+\\d+"
+required = false
+icon = "ti-regex"

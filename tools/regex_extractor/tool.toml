@@ -1,0 +1,48 @@
+[tool]
+name = "Regex Extractor"
+description = "Extracts emails, URLs, Markdown headings, or custom regex matches from text files"
+icon = "ti-regex"
+script = "regex_extractor.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with files"
+type = "folder"
+placeholder = "Select folder containing files"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "file_glob"
+label = "File glob"
+type = "text"
+placeholder = "*.txt"
+required = false
+icon = "ti-filter"
+
+[[params]]
+id = "preset"
+label = "Preset"
+type = "dropdown"
+options = ["custom", "emails", "urls", "markdown headings"]
+default = "emails"
+required = true
+icon = "ti-list-search"
+
+[[params]]
+id = "pattern"
+label = "Custom regex"
+type = "text"
+placeholder = "Only used when preset is custom"
+required = false
+icon = "ti-code"
+
+[[params]]
+id = "output_file"
+label = "Output CSV file"
+type = "save"
+filter = "*.csv"
+placeholder = "extracted_matches.csv"
+required = false
+icon = "ti-file-spreadsheet"
