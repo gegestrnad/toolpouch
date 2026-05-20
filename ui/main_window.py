@@ -458,7 +458,10 @@ class MainWindow(QMainWindow):
 
     def _load_tools(self):
         self._tools = load_tools(self.tools_dir)
-        self.version_lbl.setText(f"{len(self._tools)} tool{'s' if len(self._tools) != 1 else ''} loaded")
+        # FIX: Correct plural label logic - 's' only when count != 1
+        tool_count = len(self._tools)
+        tool_word = "tool" if tool_count == 1 else "tools"
+        self.version_lbl.setText(f"{tool_count} {tool_word} loaded")
 
         for btn in self._tool_buttons:
             btn.setParent(None)
