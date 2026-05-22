@@ -20,48 +20,48 @@ from ui.themes import ThemeManager
 
 
 STYLESHEET = """
-QMainWindow, QWidget {{
+QMainWindow, QWidget {
     background: palette(window);
     color: palette(windowText);
     font-family: "Segoe UI", "SF Pro Display", sans-serif;
     font-size: 13px;
-}}
+}
 
 /* Sidebar */
-#sidebar {{
+#sidebar {
     background: palette(alternateBase);
     border-right: 1px solid palette(mid);
     min-width: 210px;
     max-width: 210px;
-}}
+}
 
-#app_title {{
+#app_title {
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.3px;
-}}
+}
 
-#app_version {{
+#app_version {
     font-size: 10px;
     color: palette(placeholderText);
-}}
+}
 
 /* Search */
-#search_input {{
+#search_input {
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 5px 10px;
     background: palette(base);
     font-size: 12px;
-}}
+}
 
-#search_input:focus {{
+#search_input:focus {
     border: 1px solid palette(highlight);
     outline: none;
-}}
+}
 
 /* Tool items */
-.tool_item {{
+.tool_item {
     border: none;
     border-left: 2px solid transparent;
     border-radius: 0;
@@ -70,14 +70,14 @@ QMainWindow, QWidget {{
     font-size: 13px;
     color: palette(placeholderText);
     background: transparent;
-}}
+}
 
-.tool_item:hover {{
+.tool_item:hover {
     background: palette(base);
     color: palette(windowText);
-}}
+}
 
-.tool_item_active {{
+.tool_item_active {
     border: none;
     border-left: 2px solid palette(highlight);
     border-radius: 0;
@@ -87,10 +87,10 @@ QMainWindow, QWidget {{
     font-weight: 600;
     color: palette(windowText);
     background: palette(base);
-}}
+}
 
 /* Add tool button */
-#add_tool_btn {{
+#add_tool_btn {
     border: 1px dashed palette(mid);
     border-radius: 6px;
     padding: 7px;
@@ -98,30 +98,30 @@ QMainWindow, QWidget {{
     color: palette(placeholderText);
     background: transparent;
     margin: 8px;
-}}
+}
 
-#add_tool_btn:hover {{
+#add_tool_btn:hover {
     border-color: palette(highlight);
     color: palette(highlight);
-}}
+}
 
 /* Tool header */
-#tool_header {{
+#tool_header {
     border-bottom: 1px solid palette(mid);
-}}
+}
 
-#tool_name {{
+#tool_name {
     font-size: 16px;
     font-weight: 600;
-}}
+}
 
-#tool_desc {{
+#tool_desc {
     font-size: 12px;
     color: palette(placeholderText);
-}}
+}
 
 /* Run / Stop buttons */
-#run_btn {{
+#run_btn {
     background: palette(highlight);
     color: palette(highlightedText);
     border: none;
@@ -130,17 +130,17 @@ QMainWindow, QWidget {{
     font-size: 13px;
     font-weight: 600;
     min-width: 90px;
-}}
+}
 
-#run_btn:hover {{
+#run_btn:hover {
     background: palette(link);
-}}
+}
 
-#run_btn:pressed {{
+#run_btn:pressed {
     background: palette(dark);
-}}
+}
 
-#stop_btn {{
+#stop_btn {
     background: palette(linkVisited);
     color: palette(highlightedText);
     border: none;
@@ -149,175 +149,187 @@ QMainWindow, QWidget {{
     font-size: 13px;
     font-weight: 600;
     min-width: 90px;
-}}
+}
 
-#stop_btn:hover {{
+#stop_btn:hover {
     background: palette(highlight);
-}}
+}
 
 /* Params */
-#params_frame {{
+#params_frame {
     border-bottom: 1px solid palette(mid);
-}}
+}
 
-#field_label {{
+#field_label {
     font-size: 12px;
     font-weight: 600;
     color: palette(placeholderText);
-}}
+}
 
-QLineEdit {{
+QLineEdit {
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 6px 10px;
     background: palette(base);
     font-size: 13px;
-}}
+}
 
-QLineEdit:focus {{
+QLineEdit:focus {
     border: 1px solid palette(highlight);
-}}
+}
 
-QComboBox {{
+QComboBox {
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 5px 10px;
     background: palette(base);
-}}
+    color: palette(text);
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlightedText);
+}
 
-QComboBox:focus {{
+QComboBox:focus {
     border: 1px solid palette(highlight);
-}}
+}
 
-#browse_btn {{
+QComboBox QAbstractItemView {
+    background: palette(base);
+    color: palette(text);
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlightedText);
+    border: 1px solid palette(mid);
+    outline: none;
+}
+
+#browse_btn {
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 5px 10px;
     background: palette(alternateBase);
     font-size: 12px;
-}}
+}
 
-#browse_btn:hover {{
+#browse_btn:hover {
     border-color: palette(highlight);
     color: palette(highlight);
-}}
+}
 
 /* Progress */
-#progress_frame {{
+#progress_frame {
     border-bottom: 1px solid palette(mid);
-}}
+}
 
-#progress_label {{
+#progress_label {
     font-size: 12px;
     color: palette(placeholderText);
-}}
+}
 
-#progress_pct {{
+#progress_pct {
     font-size: 12px;
     font-weight: 600;
     color: palette(highlight);
-}}
+}
 
-QProgressBar {{
+QProgressBar {
     border: none;
     border-radius: 2px;
     background: palette(mid);
-}}
+}
 
-QProgressBar::chunk {{
+QProgressBar::chunk {
     background: palette(highlight);
     border-radius: 2px;
-}}
+}
 
 /* Log */
-#log_header {{
+#log_header {
     border-bottom: 1px solid palette(mid);
     background: palette(alternateBase);
-}}
+}
 
-#log_title {{
+#log_title {
     font-size: 12px;
     font-weight: 600;
     color: palette(placeholderText);
-}}
+}
 
-#clear_btn {{
+#clear_btn {
     border: 1px solid palette(mid);
     border-radius: 4px;
     padding: 2px 10px;
     font-size: 11px;
     background: transparent;
     color: palette(placeholderText);
-}}
+}
 
-#clear_btn:hover {{
+#clear_btn:hover {
     color: palette(windowText);
-}}
+}
 
-#log_console {{
+#log_console {
     background: palette(alternateBase);
     border: none;
     font-size: 12px;
-}}
+}
 
 /* Welcome */
-#welcome_label {{
+#welcome_label {
     font-size: 15px;
     color: palette(placeholderText);
-}}
+}
 
 /* Section header */
-#section_label {{
+#section_label {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.08em;
     color: palette(placeholderText);
     padding: 10px 16px 4px;
-}}
+}
 
-#no_results {{
+#no_results {
     font-size: 12px;
     color: palette(placeholderText);
     padding: 10px 16px;
-}}
+}
 
-#remove_btn {{
+#remove_btn {
     background: transparent;
     border: 1px solid palette(mid);
     border-radius: 4px;
     color: palette(placeholderText);
     font-size: 11px;
-}}
+}
 
-#remove_btn:hover {{
+#remove_btn:hover {
     border-color: palette(highlight);
     color: palette(highlight);
-}}
+}
 
 /* Context menu */
-QMenu {{
+QMenu {
     background: palette(alternateBase);
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 4px;
-}}
+}
 
-QMenu::item {{
+QMenu::item {
     padding: 6px 20px;
     border-radius: 4px;
     font-size: 13px;
-}}
+}
 
-QMenu::item:selected {{
+QMenu::item:selected {
     background: palette(highlight);
     color: palette(highlightedText);
-}}
+}
 
-QMenu::separator {{
+QMenu::separator {
     height: 1px;
     background: palette(mid);
     margin: 3px 8px;
-}}
+}
 """
 
 
