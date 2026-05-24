@@ -19,6 +19,44 @@ from ui.wizard_dialog import WizardDialog
 from ui.themes import ThemeManager
 
 
+SORT_ORDERS = ("Default", "Name A-Z", "Name Z-A", "Recently Used")
+
+
+def _tool_id(tool: ToolDefinition) -> str:
+    return tool.folder.name
+
+
+def sort_tools_for_sidebar(
+    tools: list[ToolDefinition],
+    favorite_tool_ids: list[str],
+    recent_tool_ids: list[str],
+    sort_order: str,
+) -> list[ToolDefinition]:
+    favorite_ids = set(favorite_tool_ids)
+    recent_rank = {tool_id: index for index, tool_id in enumerate(recent_tool_ids)}
+    original_rank = {_tool_id(tool): index for index, tool in enumerate(tools)}
+
+    def sort_bucket(bucket: list[ToolDefinition]) -> list[ToolDefinition]:
+        if sort_order == "Name A-Z":
+            return sorted(bucket, key=lambda tool: (tool.name.casefold(), _tool_id(tool).casefold()))
+        if sort_order == "Name Z-A":
+            return sorted(bucket, key=lambda tool: (tool.name.casefold(), _tool_id(tool).casefold()), reverse=True)
+        if sort_order == "Recently Used":
+            return sorted(
+                bucket,
+                key=lambda tool: (
+                    recent_rank.get(_tool_id(tool), len(recent_rank)),
+                    tool.name.casefold(),
+                    _tool_id(tool).casefold(),
+                ),
+            )
+        return sorted(bucket, key=lambda tool: original_rank[_tool_id(tool)])
+
+    favorites = [tool for tool in tools if _tool_id(tool) in favorite_ids]
+    regular = [tool for tool in tools if _tool_id(tool) not in favorite_ids]
+    return sort_bucket(favorites) + sort_bucket(regular)
+
+
 STYLESHEET = """
 QMainWindow, QWidget {
     background: palette(window);
@@ -334,14 +372,20 @@ QMenu::separator {
 
 
 class ToolButton(QPushButton):
-    def __init__(self, tool: ToolDefinition, parent=None):
-        super().__init__(tool.name, parent)
+    def __init__(self, tool: ToolDefinition, is_favorite: bool = False, parent=None):
+        super().__init__(parent)
         self.tool = tool
+        self.set_favorite(is_favorite)
         self.setProperty("class", "tool_item")
         self.setMinimumHeight(36)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
+
+    def set_favorite(self, is_favorite: bool):
+        self.is_favorite = is_favorite
+        prefix = "[*] " if is_favorite else ""
+        self.setText(f"{prefix}{self.tool.name}")
 
     def set_active(self, active: bool):
         self.setProperty("class", "tool_item_active" if active else "tool_item")
@@ -446,6 +490,24 @@ class MainWindow(QMainWindow):
         hdr_lay.addSpacing(6)
         hdr_lay.addLayout(theme_lay)
 
+        # Sort selector
+        sort_lay = QHBoxLayout()
+        sort_label = QLabel("Sort by:")
+        sort_label.setStyleSheet("font-size: 11px; color: palette(placeholderText);")
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(SORT_ORDERS)
+        sort_order = self.config.get("tool_sort_order", "Default")
+        if sort_order not in SORT_ORDERS:
+            sort_order = "Default"
+        self.sort_combo.setCurrentText(sort_order)
+        self.sort_combo.currentTextChanged.connect(self._on_sort_changed)
+        self.sort_combo.setMaximumWidth(120)
+        self.sort_combo.setStyleSheet("font-size: 11px;")
+        sort_lay.addWidget(sort_label)
+        sort_lay.addWidget(self.sort_combo)
+        hdr_lay.addSpacing(6)
+        hdr_lay.addLayout(sort_lay)
+
         sb_lay.addWidget(hdr)
 
         # Separator
@@ -529,7 +591,10 @@ class MainWindow(QMainWindow):
             widget.style().polish(widget)
             widget.update()
 
-    def _load_tools(self):
+    def _load_tools(self, active_tool_id: str | None = None):
+        if active_tool_id is None and self._active_btn:
+            active_tool_id = _tool_id(self._active_btn.tool)
+
         self._tools = load_tools(self.tools_dir)
         # FIX: Correct plural logic
         tool_count = len(self._tools)
@@ -539,21 +604,48 @@ class MainWindow(QMainWindow):
         for btn in self._tool_buttons:
             btn.setParent(None)
         self._tool_buttons.clear()
+        self._active_btn = None
 
-        for tool in self._tools:
-            btn = ToolButton(tool)
+        favorite_ids = self._current_favorite_tool_ids()
+        sorted_tools = sort_tools_for_sidebar(
+            self._tools,
+            favorite_ids,
+            self.config.get("recent_tools", []),
+            self.config.get("tool_sort_order", "Default"),
+        )
+
+        for tool in sorted_tools:
+            btn = ToolButton(tool, _tool_id(tool) in favorite_ids)
             btn.clicked.connect(lambda checked, t=tool, b=btn: self._select_tool(t, b))
             btn.customContextMenuRequested.connect(
                 lambda pos, t=tool, b=btn: self._show_tool_context_menu(pos, t, b)
             )
             self.tool_list_layout.addWidget(btn)
             self._tool_buttons.append(btn)
+            if active_tool_id == _tool_id(tool):
+                btn.set_active(True)
+                self._active_btn = btn
+
+        self._filter_tools(self.search_input.text())
+
+    def _current_favorite_tool_ids(self) -> list[str]:
+        tool_ids = {_tool_id(tool) for tool in self._tools}
+        favorites = [
+            tool_id
+            for tool_id in self.config.get("favorite_tools", [])
+            if tool_id in tool_ids
+        ]
+        if favorites != self.config.get("favorite_tools", []):
+            self.config.set("favorite_tools", favorites)
+            self.config.save()
+        return favorites
 
     def _select_tool(self, tool: ToolDefinition, btn: ToolButton):
         if self._active_btn:
             self._active_btn.set_active(False)
         btn.set_active(True)
         self._active_btn = btn
+        self.config.add_recent_tool(_tool_id(tool))
 
         key = tool.name
         if key not in self._panels:
@@ -562,6 +654,8 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(panel)
 
         self.stack.setCurrentWidget(self._panels[key])
+        if self.config.get("tool_sort_order", "Default") == "Recently Used":
+            self._load_tools(active_tool_id=_tool_id(tool))
 
     def _filter_tools(self, text: str):
         q = text.strip().lower()
@@ -575,6 +669,10 @@ class MainWindow(QMainWindow):
 
     def _show_tool_context_menu(self, pos, tool, btn):
         menu = QMenu(self)
+        favorite_action = menu.addAction(
+            "Unpin favorite" if self._is_favorite(tool) else "Pin favorite"
+        )
+        menu.addSeparator()
         edit_action = menu.addAction("Edit tool...")
         export_action = menu.addAction("Export tool...")
         menu.addSeparator()
@@ -582,12 +680,36 @@ class MainWindow(QMainWindow):
         delete_action.setProperty("danger", True)
 
         action = menu.exec(btn.mapToGlobal(pos))
-        if action == edit_action:
+        if action == favorite_action:
+            self._toggle_favorite(tool)
+        elif action == edit_action:
             self._edit_tool(tool)
         elif action == export_action:
             self._export_tool(tool)
         elif action == delete_action:
             self._delete_tool(tool, btn)
+
+    def _on_sort_changed(self, sort_order: str):
+        if sort_order not in SORT_ORDERS:
+            sort_order = "Default"
+        self.config.set("tool_sort_order", sort_order)
+        self.config.save()
+        self._load_tools()
+
+    def _is_favorite(self, tool: ToolDefinition) -> bool:
+        return _tool_id(tool) in self.config.get("favorite_tools", [])
+
+    def _toggle_favorite(self, tool: ToolDefinition):
+        active_tool_id = _tool_id(self._active_btn.tool) if self._active_btn else None
+        tool_id = _tool_id(tool)
+        favorites = self.config.get("favorite_tools", [])
+        if tool_id in favorites:
+            favorites.remove(tool_id)
+        else:
+            favorites.insert(0, tool_id)
+        self.config.set("favorite_tools", favorites)
+        self.config.save()
+        self._load_tools(active_tool_id=active_tool_id)
 
     def _edit_tool(self, tool):
         dlg = WizardDialog(self.tools_dir, self, edit_tool=tool)
@@ -645,6 +767,13 @@ class MainWindow(QMainWindow):
         if self._active_btn is btn:
             self._active_btn = None
             self.stack.setCurrentIndex(0)  # back to welcome screen
+
+        favorites = self.config.get("favorite_tools", [])
+        tool_id = _tool_id(tool)
+        if tool_id in favorites:
+            favorites.remove(tool_id)
+            self.config.set("favorite_tools", favorites)
+            self.config.save()
 
         self._load_tools()
 

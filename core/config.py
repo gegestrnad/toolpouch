@@ -18,7 +18,10 @@ class ConfigManager:
         if self.config_file.exists():
             try:
                 with open(self.config_file, 'r') as f:
-                    return json.load(f)
+                    loaded = json.load(f)
+                defaults = self._default_config()
+                defaults.update(loaded)
+                return defaults
             except Exception as e:
                 print(f"[ConfigManager] Failed to load config: {e}")
         
@@ -30,6 +33,8 @@ class ConfigManager:
             "window.geometry": None,
             "last_tool": None,
             "recent_tools": [],
+            "favorite_tools": [],
+            "tool_sort_order": "Default",
         }
 
     def get(self, key: str, default=None):
