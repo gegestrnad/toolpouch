@@ -1,13 +1,11 @@
 from __future__ import annotations
 from datetime import datetime
-from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QFileDialog, QProgressBar,
-    QTextEdit, QSizePolicy, QFrame, QScrollArea,
+    QTextEdit, QFrame,
 )
-from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QTextCursor, QFont
 
 from core.tool_loader import ToolDefinition, ToolParam
@@ -26,6 +24,7 @@ class FieldWidget(QWidget):
     def __init__(self, param: ToolParam, parent=None):
         super().__init__(parent)
         self.param = param
+        self._selected_files: list[str] = []
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
@@ -46,9 +45,11 @@ class FieldWidget(QWidget):
         else:
             self._input = QLineEdit()
             self._input.setPlaceholderText(param.placeholder)
+            if param.type == "files":
+                self._input.setReadOnly(True)
             row.addWidget(self._input)
 
-            if param.type in ("folder", "file", "save"):
+            if param.type in ("folder", "file", "files", "save"):
                 btn = QPushButton("Browse…")
                 btn.setObjectName("browse_btn")
                 btn.setFixedWidth(80)
@@ -63,9 +64,18 @@ class FieldWidget(QWidget):
         elif self.param.type == "file":
             filt = self.param.filter or "All files (*)"
             path, _ = QFileDialog.getOpenFileName(self, f"Select {self.param.label}", "", filt)
+        elif self.param.type == "files":
+            filt = self.param.filter or "All files (*)"
+            paths, _ = QFileDialog.getOpenFileNames(self, f"Select {self.param.label}", "", filt)
+            if paths:
+                self._selected_files = paths
+                count = len(paths)
+                label = "file" if count == 1 else "files"
+                self._input.setText(f"{count} {label} selected")
+            return
         else:  # save
             filt = self.param.filter or "All files (*)"
-            path, _ = QFileDialog.getSaveFileName(self, f"Save as", "", filt)
+            path, _ = QFileDialog.getSaveFileName(self, "Save as", "", filt)
 
         if path:
             self._input.setText(path)
@@ -73,6 +83,8 @@ class FieldWidget(QWidget):
     def value(self) -> str:
         if isinstance(self._input, QComboBox):
             return self._input.currentText()
+        if self.param.type == "files":
+            return "\n".join(self._selected_files)
         return self._input.text().strip()
 
     def is_valid(self) -> bool:

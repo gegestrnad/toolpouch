@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-PARAM_TYPES = ["text", "folder", "file", "save", "dropdown"]
+PARAM_TYPES = ["text", "folder", "file", "files", "save", "dropdown"]
 
 ICONS = [
     "ti-tool", "ti-file", "ti-folder", "ti-world-download", "ti-language",
@@ -52,7 +52,7 @@ def generate_toml(
         if p.get("placeholder"):
             lines.append(f'placeholder = "{_escape_toml_string(p["placeholder"])}"')
         if p.get("required"):
-            lines.append(f'required = true')
+            lines.append("required = true")
         if p.get("icon"):
             lines.append(f'icon = "{p["icon"]}"')
         if p.get("filter"):
