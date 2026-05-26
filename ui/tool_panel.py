@@ -1,12 +1,14 @@
 from __future__ import annotations
 from datetime import datetime
+from pathlib import Path
 
+from PySide6.QtCore import QMimeData
+from PySide6.QtGui import QColor, QTextCursor, QFont, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QFileDialog, QProgressBar,
     QTextEdit, QFrame,
 )
-from PySide6.QtGui import QColor, QTextCursor, QFont
 
 from core.tool_loader import ToolDefinition, ToolParam
 from core.tool_runner import ToolRunner
@@ -25,6 +27,8 @@ class FieldWidget(QWidget):
         super().__init__(parent)
         self.param = param
         self._selected_files: list[str] = []
+        self._drop_enabled = param.type in ("folder", "file", "files")
+        self.setAcceptDrops(self._drop_enabled)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
@@ -44,6 +48,7 @@ class FieldWidget(QWidget):
             row.addWidget(self._input)
         else:
             self._input = QLineEdit()
+            self._input.setAcceptDrops(False)
             self._input.setPlaceholderText(param.placeholder)
             if param.type == "files":
                 self._input.setReadOnly(True)
@@ -53,6 +58,7 @@ class FieldWidget(QWidget):
                 btn = QPushButton("Browse…")
                 btn.setObjectName("browse_btn")
                 btn.setFixedWidth(80)
+                btn.setAcceptDrops(False)
                 btn.clicked.connect(self._browse)
                 row.addWidget(btn)
 
@@ -68,10 +74,7 @@ class FieldWidget(QWidget):
             filt = self.param.filter or "All files (*)"
             paths, _ = QFileDialog.getOpenFileNames(self, f"Select {self.param.label}", "", filt)
             if paths:
-                self._selected_files = paths
-                count = len(paths)
-                label = "file" if count == 1 else "files"
-                self._input.setText(f"{count} {label} selected")
+                self._apply_selected_files(paths)
             return
         else:  # save
             filt = self.param.filter or "All files (*)"
@@ -79,6 +82,53 @@ class FieldWidget(QWidget):
 
         if path:
             self._input.setText(path)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if self._drop_enabled and self._can_apply_dropped_paths(
+            self._local_paths_from_mime_data(event.mimeData())
+        ):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        if self._apply_dropped_paths(self._local_paths_from_mime_data(event.mimeData())):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def _local_paths_from_mime_data(self, mime_data: QMimeData) -> list[str]:
+        paths = []
+        for url in mime_data.urls():
+            if url.isLocalFile():
+                paths.append(url.toLocalFile())
+        return paths
+
+    def _can_apply_dropped_paths(self, paths: list[str]) -> bool:
+        if not paths:
+            return False
+        if self.param.type == "folder":
+            return len(paths) == 1 and Path(paths[0]).is_dir()
+        if self.param.type == "file":
+            return len(paths) == 1 and Path(paths[0]).is_file()
+        if self.param.type == "files":
+            return all(Path(path).is_file() for path in paths)
+        return False
+
+    def _apply_dropped_paths(self, paths: list[str]) -> bool:
+        if not self._can_apply_dropped_paths(paths):
+            return False
+        if self.param.type == "files":
+            self._apply_selected_files(paths)
+        else:
+            self._input.setText(paths[0])
+        return True
+
+    def _apply_selected_files(self, paths: list[str]):
+        self._selected_files = paths
+        count = len(paths)
+        label = "file" if count == 1 else "files"
+        self._input.setText(f"{count} {label} selected")
 
     def value(self) -> str:
         if isinstance(self._input, QComboBox):
