@@ -7,7 +7,7 @@ from PySide6.QtGui import QColor, QTextCursor, QFont, QDragEnterEvent, QDropEven
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QFileDialog, QProgressBar,
-    QTextEdit, QFrame,
+    QTextEdit, QFrame, QListView, QTreeView, QAbstractItemView,
 )
 
 from core.tool_loader import ToolDefinition, ToolParam
@@ -26,8 +26,8 @@ class FieldWidget(QWidget):
     def __init__(self, param: ToolParam, parent=None):
         super().__init__(parent)
         self.param = param
-        self._selected_files: list[str] = []
-        self._drop_enabled = param.type in ("folder", "file", "files")
+        self._selected_paths: list[str] = []
+        self._drop_enabled = param.type in ("folder", "folders", "file", "files")
         self.setAcceptDrops(self._drop_enabled)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -50,11 +50,11 @@ class FieldWidget(QWidget):
             self._input = QLineEdit()
             self._input.setAcceptDrops(False)
             self._input.setPlaceholderText(param.placeholder)
-            if param.type == "files":
+            if param.type in ("files", "folders"):
                 self._input.setReadOnly(True)
             row.addWidget(self._input)
 
-            if param.type in ("folder", "file", "files", "save"):
+            if param.type in ("folder", "folders", "file", "files", "save"):
                 btn = QPushButton("Browse…")
                 btn.setObjectName("browse_btn")
                 btn.setFixedWidth(80)
@@ -67,6 +67,11 @@ class FieldWidget(QWidget):
     def _browse(self):
         if self.param.type == "folder":
             path = QFileDialog.getExistingDirectory(self, f"Select {self.param.label}")
+        elif self.param.type == "folders":
+            paths = self._get_existing_directories()
+            if paths:
+                self._apply_selected_paths(paths, "folder")
+            return
         elif self.param.type == "file":
             filt = self.param.filter or "All files (*)"
             path, _ = QFileDialog.getOpenFileName(self, f"Select {self.param.label}", "", filt)
@@ -74,7 +79,7 @@ class FieldWidget(QWidget):
             filt = self.param.filter or "All files (*)"
             paths, _ = QFileDialog.getOpenFileNames(self, f"Select {self.param.label}", "", filt)
             if paths:
-                self._apply_selected_files(paths)
+                self._apply_selected_paths(paths, "file")
             return
         else:  # save
             filt = self.param.filter or "All files (*)"
@@ -82,6 +87,21 @@ class FieldWidget(QWidget):
 
         if path:
             self._input.setText(path)
+
+    def _get_existing_directories(self) -> list[str]:
+        dialog = QFileDialog(self, f"Select {self.param.label}")
+        dialog.setFileMode(QFileDialog.Directory)
+        dialog.setOption(QFileDialog.ShowDirsOnly, True)
+        dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+
+        for view_type in (QListView, QTreeView):
+            view = dialog.findChild(view_type)
+            if view:
+                view.setSelectionMode(QAbstractItemView.ExtendedSelection)
+
+        if dialog.exec():
+            return dialog.selectedFiles()
+        return []
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if self._drop_enabled and self._can_apply_dropped_paths(
@@ -109,6 +129,8 @@ class FieldWidget(QWidget):
             return False
         if self.param.type == "folder":
             return len(paths) == 1 and Path(paths[0]).is_dir()
+        if self.param.type == "folders":
+            return all(Path(path).is_dir() for path in paths)
         if self.param.type == "file":
             return len(paths) == 1 and Path(paths[0]).is_file()
         if self.param.type == "files":
@@ -119,22 +141,24 @@ class FieldWidget(QWidget):
         if not self._can_apply_dropped_paths(paths):
             return False
         if self.param.type == "files":
-            self._apply_selected_files(paths)
+            self._apply_selected_paths(paths, "file")
+        elif self.param.type == "folders":
+            self._apply_selected_paths(paths, "folder")
         else:
             self._input.setText(paths[0])
         return True
 
-    def _apply_selected_files(self, paths: list[str]):
-        self._selected_files = paths
+    def _apply_selected_paths(self, paths: list[str], singular_label: str):
+        self._selected_paths = paths
         count = len(paths)
-        label = "file" if count == 1 else "files"
+        label = singular_label if count == 1 else f"{singular_label}s"
         self._input.setText(f"{count} {label} selected")
 
     def value(self) -> str:
         if isinstance(self._input, QComboBox):
             return self._input.currentText()
-        if self.param.type == "files":
-            return "\n".join(self._selected_files)
+        if self.param.type in ("files", "folders"):
+            return "\n".join(self._selected_paths)
         return self._input.text().strip()
 
     def is_valid(self) -> bool:

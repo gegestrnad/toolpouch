@@ -44,6 +44,31 @@ class FilesFieldWidgetTests(unittest.TestCase):
 
         self.assertTrue(widget.is_valid())
 
+    def test_folders_field_returns_newline_separated_selected_paths(self):
+        widget = FieldWidget(ToolParam(id="selected_dirs", label="Selected folders", type="folders"))
+
+        with patch.object(
+            widget,
+            "_get_existing_directories",
+            return_value=[r"D:\Images\Set 1", r"D:\Images\Set 2"],
+        ):
+            widget._browse()
+
+        self.assertEqual(widget.value(), "D:\\Images\\Set 1\nD:\\Images\\Set 2")
+        self.assertEqual(widget._input.text(), "2 folders selected")
+
+    def test_required_folders_field_is_invalid_until_folders_are_selected(self):
+        widget = FieldWidget(
+            ToolParam(id="selected_dirs", label="Selected folders", type="folders", required=True)
+        )
+
+        self.assertFalse(widget.is_valid())
+
+        with patch.object(widget, "_get_existing_directories", return_value=[r"D:\Images\Set 1"]):
+            widget._browse()
+
+        self.assertTrue(widget.is_valid())
+
     def test_file_field_accepts_dropped_file(self):
         widget = FieldWidget(ToolParam(id="input_file", label="Input file", type="file"))
 
@@ -62,6 +87,16 @@ class FilesFieldWidgetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder_path:
             self.assertTrue(widget._apply_dropped_paths([folder_path]))
             self.assertEqual(widget.value(), folder_path)
+
+    def test_folders_field_accepts_multiple_dropped_folders(self):
+        widget = FieldWidget(ToolParam(id="selected_dirs", label="Selected folders", type="folders"))
+
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            paths = [first, second]
+
+            self.assertTrue(widget._apply_dropped_paths(paths))
+            self.assertEqual(widget.value(), "\n".join(paths))
+            self.assertEqual(widget._input.text(), "2 folders selected")
 
     def test_files_field_accepts_multiple_dropped_files(self):
         widget = FieldWidget(ToolParam(id="selected_files", label="Selected files", type="files"))

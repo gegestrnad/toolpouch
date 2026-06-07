@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-PARAM_TYPES = ["text", "folder", "file", "files", "save", "dropdown"]
+PARAM_TYPES = ["text", "folder", "folders", "file", "files", "save", "dropdown"]
 
 ICONS = [
     "ti-tool", "ti-file", "ti-folder", "ti-world-download", "ti-language",

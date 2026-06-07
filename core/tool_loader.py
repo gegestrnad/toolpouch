@@ -20,7 +20,7 @@ else:
 class ToolParam:
     id: str
     label: str
-    type: str  # text | folder | file | files | save | dropdown
+    type: str  # text | folder | folders | file | files | save | dropdown
     placeholder: str = ""
     required: bool = False
     icon: str = "ti-settings"
