@@ -79,6 +79,9 @@ class ToolRunner(QObject):
             self._process.kill()
             self.status_changed.emit("idle")
 
+    def is_running(self) -> bool:
+        return bool(self._process and self._process.state() == QProcess.Running)
+
     def _on_output(self):
         raw = self._process.readAllStandardOutput().toStdString()
         for line in raw.splitlines():

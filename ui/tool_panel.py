@@ -2,16 +2,22 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QMimeData
+from PySide6.QtCore import QMimeData, QProcess, QProcessEnvironment
 from PySide6.QtGui import QColor, QTextCursor, QFont, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QFileDialog, QProgressBar,
     QTextEdit, QFrame, QListView, QTreeView, QAbstractItemView,
+    QMessageBox,
 )
 
+from core.dependency_checker import (
+    MissingDependency,
+    find_missing_dependencies,
+    python_supports_pip,
+)
 from core.tool_loader import ToolDefinition, ToolParam
-from core.tool_runner import ToolRunner
+from core.tool_runner import ToolRunner, _get_python_and_env
 
 
 LEVEL_COLORS = {
@@ -161,6 +167,17 @@ class FieldWidget(QWidget):
             return "\n".join(self._selected_paths)
         return self._input.text().strip()
 
+    def reset(self):
+        if isinstance(self._input, QComboBox):
+            if self.param.default in self.param.options:
+                self._input.setCurrentText(self.param.default)
+            elif self._input.count():
+                self._input.setCurrentIndex(0)
+            return
+
+        self._selected_paths = []
+        self._input.clear()
+
     def is_valid(self) -> bool:
         if not self.param.required:
             return True
@@ -172,6 +189,7 @@ class ToolPanel(QWidget):
         super().__init__(parent)
         self.tool = tool
         self.runner = ToolRunner(self)
+        self._install_process: QProcess | None = None
         self._field_widgets: list[FieldWidget] = []
         self._build_ui()
         self._connect_runner()
@@ -207,8 +225,14 @@ class ToolPanel(QWidget):
         self.stop_btn.setVisible(False)
         self.stop_btn.clicked.connect(self.runner.stop)
 
+        self.reset_btn = QPushButton("Reset")
+        self.reset_btn.setObjectName("clear_btn")
+        self.reset_btn.setFixedHeight(28)
+        self.reset_btn.clicked.connect(self._reset_form)
+
         h_lay.addLayout(title_area)
         h_lay.addStretch()
+        h_lay.addWidget(self.reset_btn)
         h_lay.addWidget(self.stop_btn)
         h_lay.addWidget(self.run_btn)
         root.addWidget(header)
@@ -296,9 +320,17 @@ class ToolPanel(QWidget):
         self.runner.finished.connect(self._on_finished)
 
     def _run(self):
+        if self._install_process and self._install_process.state() != QProcess.NotRunning:
+            self._append_log("[WARN] Package installation is still running.", "warn")
+            return
+
         missing = [fw.param.label for fw in self._field_widgets if not fw.is_valid()]
         if missing:
             self._append_log(f"[ERROR] Required fields missing: {', '.join(missing)}", "error")
+            return
+
+        missing_dependencies = self._find_missing_dependencies()
+        if missing_dependencies and not self._handle_missing_dependencies(missing_dependencies):
             return
 
         args = []
@@ -309,6 +341,104 @@ class ToolPanel(QWidget):
 
         self._clear_log()
         self.runner.run(self.tool.script_path, args)
+
+    def _reset_form(self):
+        if self.runner.is_running():
+            return
+        for fw in self._field_widgets:
+            fw.reset()
+
+    def _find_missing_dependencies(self) -> list[MissingDependency]:
+        try:
+            python, env = _get_python_and_env()
+            return find_missing_dependencies(self.tool.script_path, python, env)
+        except Exception as exc:
+            self._append_log(f"[WARN] Could not check Python dependencies: {exc}", "warn")
+            return []
+
+    def _handle_missing_dependencies(self, missing: list[MissingDependency]) -> bool:
+        package_names = sorted({dependency.package_name for dependency in missing}, key=str.casefold)
+        import_names = ", ".join(dependency.import_name for dependency in missing)
+        package_list = " ".join(package_names)
+        command = f"python -m pip install {package_list}"
+
+        self._append_log(
+            f"[ERROR] Missing Python package(s) for imports: {import_names}",
+            "error",
+        )
+
+        python, env = _get_python_and_env()
+        if not python_supports_pip(python, env):
+            self._append_log(
+                "[ERROR] The active ToolPouch Python does not have pip available.",
+                "error",
+            )
+            self._append_log(
+                f"[INFO] Install manually or rebuild/update the runtime with: {command}",
+                "info",
+            )
+            QMessageBox.information(
+                self,
+                "Missing Python packages",
+                "ToolPouch found missing Python packages, but the active Python runtime "
+                "does not have pip available.\n\n"
+                f"Packages: {package_list}\n\n"
+                "Install them manually or rebuild/update the portable runtime.",
+            )
+            return False
+
+        reply = QMessageBox.question(
+            self,
+            "Install missing packages?",
+            "ToolPouch found missing Python packages for this tool.\n\n"
+            f"Imports: {import_names}\n"
+            f"Packages: {package_list}\n\n"
+            "Install them into the active ToolPouch Python environment now?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if reply != QMessageBox.Yes:
+            self._append_log(f"[INFO] Install skipped. Suggested command: {command}", "info")
+            return False
+
+        self._start_package_install(python, env, package_names)
+        return False
+
+    def _start_package_install(self, python: str, env: dict[str, str], packages: list[str]):
+        self._install_process = QProcess(self)
+        self._install_process.setProcessChannelMode(QProcess.MergedChannels)
+        self._install_process.readyReadStandardOutput.connect(self._on_install_output)
+        self._install_process.finished.connect(self._on_install_finished)
+
+        qenv = QProcessEnvironment()
+        for key, value in env.items():
+            qenv.insert(key, value)
+        self._install_process.setProcessEnvironment(qenv)
+
+        self.run_btn.setEnabled(False)
+        self.reset_btn.setEnabled(False)
+        self.progress_label.setText("Installing packages...")
+        self._append_log(f"[INFO] Running: python -m pip install {' '.join(packages)}", "info")
+        self._install_process.start(python, ["-m", "pip", "install", *packages])
+
+    def _on_install_output(self):
+        if not self._install_process:
+            return
+        raw = self._install_process.readAllStandardOutput().toStdString()
+        for line in raw.splitlines():
+            line = line.strip()
+            if line:
+                self._append_log(line, "info")
+
+    def _on_install_finished(self, exit_code: int, _exit_status):
+        success = exit_code == 0
+        self.run_btn.setEnabled(True)
+        self.reset_btn.setEnabled(True)
+        self.progress_label.setText("Ready" if success else "Finished with errors")
+        if success:
+            self._append_log("[OK] Package installation completed. Click Run again.", "ok")
+        else:
+            self._append_log("[ERROR] Package installation failed. Check the log above.", "error")
 
     def _clear_log(self):
         self.log_console.clear()
@@ -351,6 +481,7 @@ class ToolPanel(QWidget):
         is_running = status == "running"
         self.run_btn.setVisible(not is_running)
         self.stop_btn.setVisible(is_running)
+        self.reset_btn.setEnabled(not is_running)
 
     def _on_finished(self, success: bool):
         msg = "Completed successfully." if success else "Finished with errors. Check the log above."
