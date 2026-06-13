@@ -20,8 +20,9 @@ class ConfigManager:
                 with open(self.config_file, 'r') as f:
                     loaded = json.load(f)
                 defaults = self._default_config()
-                defaults.update(loaded)
-                return defaults
+                if isinstance(loaded, dict):
+                    defaults.update(loaded)
+                return self._normalize_config(defaults)
             except Exception as e:
                 print(f"[ConfigManager] Failed to load config: {e}")
         
@@ -36,6 +37,31 @@ class ConfigManager:
             "favorite_tools": [],
             "tool_sort_order": "Default",
         }
+
+    def _normalize_config(self, config: dict) -> dict:
+        config["recent_tools"] = self._clean_tool_id_list(config.get("recent_tools", []), limit=10)
+        config["favorite_tools"] = self._clean_tool_id_list(config.get("favorite_tools", []))
+        if config.get("tool_sort_order") not in {"Default", "Name A-Z", "Name Z-A", "Recently Used"}:
+            config["tool_sort_order"] = "Default"
+        return config
+
+    def _clean_tool_id_list(self, value, limit: int | None = None) -> list[str]:
+        if not isinstance(value, list):
+            return []
+
+        cleaned = []
+        seen = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            tool_id = item.strip()
+            if not tool_id or tool_id in seen:
+                continue
+            cleaned.append(tool_id)
+            seen.add(tool_id)
+            if limit is not None and len(cleaned) >= limit:
+                break
+        return cleaned
 
     def get(self, key: str, default=None):
         keys = key.split(".")
@@ -105,7 +131,11 @@ class ConfigManager:
 
     def add_recent_tool(self, tool_name: str):
         """Add tool to recent tools list."""
-        recent = self.get("recent_tools", [])
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            return
+
+        tool_name = tool_name.strip()
+        recent = self._clean_tool_id_list(self.get("recent_tools", []))
         if tool_name in recent:
             recent.remove(tool_name)
         recent.insert(0, tool_name)

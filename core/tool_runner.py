@@ -14,6 +14,7 @@ def _get_python_and_env() -> tuple[str, dict]:
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).parent
         runtime_dir = exe_dir / "runtime"
+        env["PYTHONNOUSERSITE"] = "1"
 
         candidates = [
             runtime_dir / "python.exe",

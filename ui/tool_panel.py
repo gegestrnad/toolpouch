@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QMimeData, QProcess, QProcessEnvironment
+from PySide6.QtCore import QMimeData
 from PySide6.QtGui import QColor, QTextCursor, QFont, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -13,11 +13,12 @@ from PySide6.QtWidgets import (
 
 from core.dependency_checker import (
     MissingDependency,
-    find_missing_dependencies,
+    dependency_statuses_for_tools,
     python_supports_pip,
 )
 from core.tool_loader import ToolDefinition, ToolParam
 from core.tool_runner import ToolRunner, _get_python_and_env
+from ui.package_operations import PackageOperation
 
 
 LEVEL_COLORS = {
@@ -189,10 +190,11 @@ class ToolPanel(QWidget):
         super().__init__(parent)
         self.tool = tool
         self.runner = ToolRunner(self)
-        self._install_process: QProcess | None = None
+        self._package_operation = PackageOperation(self)
         self._field_widgets: list[FieldWidget] = []
         self._build_ui()
         self._connect_runner()
+        self._connect_package_operation()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -319,8 +321,13 @@ class ToolPanel(QWidget):
         self.runner.status_changed.connect(self._on_status)
         self.runner.finished.connect(self._on_finished)
 
+    def _connect_package_operation(self):
+        self._package_operation.started.connect(self._on_package_operation_started)
+        self._package_operation.output.connect(self._append_log)
+        self._package_operation.finished.connect(self._on_install_finished)
+
     def _run(self):
-        if self._install_process and self._install_process.state() != QProcess.NotRunning:
+        if self._package_operation.is_running():
             self._append_log("[WARN] Package installation is still running.", "warn")
             return
 
@@ -351,13 +358,18 @@ class ToolPanel(QWidget):
     def _find_missing_dependencies(self) -> list[MissingDependency]:
         try:
             python, env = _get_python_and_env()
-            return find_missing_dependencies(self.tool.script_path, python, env)
+            statuses = dependency_statuses_for_tools([self.tool], python, env)
+            return [
+                MissingDependency(status.import_name, status.package_name, status.version)
+                for status in statuses
+                if status.status == "missing"
+            ]
         except Exception as exc:
             self._append_log(f"[WARN] Could not check Python dependencies: {exc}", "warn")
             return []
 
     def _handle_missing_dependencies(self, missing: list[MissingDependency]) -> bool:
-        package_names = sorted({dependency.package_name for dependency in missing}, key=str.casefold)
+        package_names = sorted({dependency.install_spec for dependency in missing}, key=str.casefold)
         import_names = ", ".join(dependency.import_name for dependency in missing)
         package_list = " ".join(package_names)
         command = f"python -m pip install {package_list}"
@@ -393,7 +405,8 @@ class ToolPanel(QWidget):
             "ToolPouch found missing Python packages for this tool.\n\n"
             f"Imports: {import_names}\n"
             f"Packages: {package_list}\n\n"
-            "Install them into the active ToolPouch Python environment now?",
+            "Install them into the active ToolPouch Python environment now?\n\n"
+            "You can also manage packages from the Dependencies page.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.Yes,
         )
@@ -405,33 +418,15 @@ class ToolPanel(QWidget):
         return False
 
     def _start_package_install(self, python: str, env: dict[str, str], packages: list[str]):
-        self._install_process = QProcess(self)
-        self._install_process.setProcessChannelMode(QProcess.MergedChannels)
-        self._install_process.readyReadStandardOutput.connect(self._on_install_output)
-        self._install_process.finished.connect(self._on_install_finished)
-
-        qenv = QProcessEnvironment()
-        for key, value in env.items():
-            qenv.insert(key, value)
-        self._install_process.setProcessEnvironment(qenv)
-
         self.run_btn.setEnabled(False)
         self.reset_btn.setEnabled(False)
         self.progress_label.setText("Installing packages...")
-        self._append_log(f"[INFO] Running: python -m pip install {' '.join(packages)}", "info")
-        self._install_process.start(python, ["-m", "pip", "install", *packages])
+        self._package_operation.install(python, env, packages)
 
-    def _on_install_output(self):
-        if not self._install_process:
-            return
-        raw = self._install_process.readAllStandardOutput().toStdString()
-        for line in raw.splitlines():
-            line = line.strip()
-            if line:
-                self._append_log(line, "info")
+    def _on_package_operation_started(self, command: str):
+        self._append_log(f"[INFO] Running: {command}", "info")
 
-    def _on_install_finished(self, exit_code: int, _exit_status):
-        success = exit_code == 0
+    def _on_install_finished(self, success: bool, _operation: str):
         self.run_btn.setEnabled(True)
         self.reset_btn.setEnabled(True)
         self.progress_label.setText("Ready" if success else "Finished with errors")

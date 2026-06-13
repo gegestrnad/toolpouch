@@ -30,6 +30,14 @@ class ToolParam:
 
 
 @dataclass
+class ToolDependency:
+    import_name: str
+    package_name: str = ""
+    version: str = ""
+    notes: str = ""
+
+
+@dataclass
 class ToolDefinition:
     name: str
     description: str
@@ -38,6 +46,7 @@ class ToolDefinition:
     long_running: bool
     params: list[ToolParam]
     folder: Path
+    dependencies: list[ToolDependency] = field(default_factory=list)
     script_exists: bool = True
     errors: list[str] = field(default_factory=list)
 
@@ -62,6 +71,7 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
 
             tool_data = data.get("tool", {})
             params_data = data.get("params", [])
+            dependencies_data = data.get("dependencies", [])
 
             script_name = tool_data.get("script", "")
             script_path = tool_folder / script_name
@@ -86,6 +96,16 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
                 )
                 for p in params_data
             ]
+            dependencies = [
+                ToolDependency(
+                    import_name=str(d.get("import", "")).strip(),
+                    package_name=str(d.get("package", "")).strip(),
+                    version=str(d.get("version", "")).strip(),
+                    notes=str(d.get("notes", "")).strip(),
+                )
+                for d in dependencies_data
+                if isinstance(d, dict) and str(d.get("import", "")).strip()
+            ]
 
             tools.append(ToolDefinition(
                 name=tool_data.get("name", tool_folder.name),
@@ -95,6 +115,7 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
                 long_running=tool_data.get("long_running", False),
                 params=params,
                 folder=tool_folder,
+                dependencies=dependencies,
                 script_exists=script_exists,
                 errors=errors,
             ))

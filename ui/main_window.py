@@ -15,6 +15,7 @@ from core.tool_loader import ToolDefinition, load_tools
 from core.config import ConfigManager
 from core.tool_importer import ToolImportError, import_tool_package
 from ui.tool_panel import ToolPanel
+from ui.utility_pages import AboutPage, DependencyManagerPage
 from ui.wizard_dialog import WizardDialog
 from ui.themes import ThemeManager
 
@@ -32,8 +33,15 @@ def sort_tools_for_sidebar(
     recent_tool_ids: list[str],
     sort_order: str,
 ) -> list[ToolDefinition]:
-    favorite_ids = set(favorite_tool_ids)
-    recent_rank = {tool_id: index for index, tool_id in enumerate(recent_tool_ids)}
+    favorite_rank = {
+        tool_id: index
+        for index, tool_id in enumerate(dict.fromkeys(favorite_tool_ids))
+    }
+    favorite_ids = set(favorite_rank)
+    recent_rank = {
+        tool_id: index
+        for index, tool_id in enumerate(dict.fromkeys(recent_tool_ids))
+    }
     original_rank = {_tool_id(tool): index for index, tool in enumerate(tools)}
 
     def sort_bucket(bucket: list[ToolDefinition]) -> list[ToolDefinition]:
@@ -50,7 +58,13 @@ def sort_tools_for_sidebar(
                     _tool_id(tool).casefold(),
                 ),
             )
-        return sorted(bucket, key=lambda tool: original_rank[_tool_id(tool)])
+        return sorted(
+            bucket,
+            key=lambda tool: (
+                favorite_rank.get(_tool_id(tool), original_rank[_tool_id(tool)]),
+                original_rank[_tool_id(tool)],
+            ),
+        )
 
     favorites = [tool for tool in tools if _tool_id(tool) in favorite_ids]
     regular = [tool for tool in tools if _tool_id(tool) not in favorite_ids]
@@ -393,6 +407,21 @@ class ToolButton(QPushButton):
         self.style().polish(self)
 
 
+class UtilityButton(QPushButton):
+    def __init__(self, label: str, page_id: str, parent=None):
+        super().__init__(label, parent)
+        self.page_id = page_id
+        self.setProperty("class", "tool_item")
+        self.setMinimumHeight(36)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_active(self, active: bool):
+        self.setProperty("class", "tool_item_active" if active else "tool_item")
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, tools_dir: Path):
         super().__init__()
@@ -418,8 +447,10 @@ class MainWindow(QMainWindow):
 
         self._tools: list[ToolDefinition] = []
         self._tool_buttons: list[ToolButton] = []
+        self._utility_buttons: list[UtilityButton] = []
         self._panels: dict[str, ToolPanel] = {}
         self._active_btn: ToolButton | None = None
+        self._active_utility_btn: UtilityButton | None = None
 
         self._build_ui()
         self._apply_theme()
@@ -540,6 +571,25 @@ class MainWindow(QMainWindow):
         scroll.setWidget(self.tool_list_widget)
         sb_lay.addWidget(scroll)
 
+        utility_sep = QFrame()
+        utility_sep.setFrameShape(QFrame.HLine)
+        utility_sep.setFixedHeight(1)
+        sb_lay.addWidget(utility_sep)
+
+        utility_label = QLabel("MANAGE")
+        utility_label.setObjectName("section_label")
+        sb_lay.addWidget(utility_label)
+
+        dependencies_btn = UtilityButton("Dependencies", "dependencies")
+        dependencies_btn.clicked.connect(
+            lambda checked, b=dependencies_btn: self._select_utility_page("dependencies", b)
+        )
+        about_btn = UtilityButton("About Me", "about")
+        about_btn.clicked.connect(lambda checked, b=about_btn: self._select_utility_page("about", b))
+        self._utility_buttons = [dependencies_btn, about_btn]
+        for btn in self._utility_buttons:
+            sb_lay.addWidget(btn)
+
         # Add tool button
         add_btn = QPushButton("+ Add new tool")
         add_btn.setObjectName("add_tool_btn")
@@ -566,6 +616,11 @@ class MainWindow(QMainWindow):
         wlbl.setAlignment(Qt.AlignCenter)
         wl.addWidget(wlbl)
         self.stack.addWidget(welcome)
+
+        self.dependency_page = DependencyManagerPage([])
+        self.about_page = AboutPage()
+        self.stack.addWidget(self.dependency_page)
+        self.stack.addWidget(self.about_page)
 
         root.addWidget(self.stack)
 
@@ -596,6 +651,16 @@ class MainWindow(QMainWindow):
             active_tool_id = _tool_id(self._active_btn.tool)
 
         self._tools = load_tools(self.tools_dir)
+        self.dependency_page.set_tools(self._tools)
+        loaded_tool_ids = {_tool_id(tool) for tool in self._tools}
+        active_tool_missing = active_tool_id is not None and active_tool_id not in loaded_tool_ids
+
+        for tool_id in list(self._panels):
+            if tool_id not in loaded_tool_ids:
+                old_panel = self._panels.pop(tool_id)
+                self.stack.removeWidget(old_panel)
+                old_panel.deleteLater()
+
         # FIX: Correct plural logic
         tool_count = len(self._tools)
         tool_word = "tool" if tool_count == 1 else "tools"
@@ -607,10 +672,11 @@ class MainWindow(QMainWindow):
         self._active_btn = None
 
         favorite_ids = self._current_favorite_tool_ids()
+        recent_ids = self._current_recent_tool_ids()
         sorted_tools = sort_tools_for_sidebar(
             self._tools,
             favorite_ids,
-            self.config.get("recent_tools", []),
+            recent_ids,
             self.config.get("tool_sort_order", "Default"),
         )
 
@@ -627,27 +693,48 @@ class MainWindow(QMainWindow):
                 self._active_btn = btn
 
         self._filter_tools(self.search_input.text())
+        if active_tool_missing:
+            self.stack.setCurrentIndex(0)
 
     def _current_favorite_tool_ids(self) -> list[str]:
-        tool_ids = {_tool_id(tool) for tool in self._tools}
-        favorites = [
-            tool_id
-            for tool_id in self.config.get("favorite_tools", [])
-            if tool_id in tool_ids
-        ]
+        favorites = self._current_tool_id_list("favorite_tools")
         if favorites != self.config.get("favorite_tools", []):
             self.config.set("favorite_tools", favorites)
             self.config.save()
         return favorites
 
+    def _current_recent_tool_ids(self) -> list[str]:
+        recent = self._current_tool_id_list("recent_tools")[:10]
+        if recent != self.config.get("recent_tools", []):
+            self.config.set("recent_tools", recent)
+            self.config.save()
+        return recent
+
+    def _current_tool_id_list(self, config_key: str) -> list[str]:
+        tool_ids = {_tool_id(tool) for tool in self._tools}
+        cleaned = []
+        seen = set()
+        for tool_id in self.config.get(config_key, []):
+            if not isinstance(tool_id, str):
+                continue
+            tool_id = tool_id.strip()
+            if not tool_id or tool_id in seen or tool_id not in tool_ids:
+                continue
+            cleaned.append(tool_id)
+            seen.add(tool_id)
+        return cleaned
+
     def _select_tool(self, tool: ToolDefinition, btn: ToolButton):
+        if self._active_utility_btn:
+            self._active_utility_btn.set_active(False)
+            self._active_utility_btn = None
         if self._active_btn:
             self._active_btn.set_active(False)
         btn.set_active(True)
         self._active_btn = btn
         self.config.add_recent_tool(_tool_id(tool))
 
-        key = tool.name
+        key = _tool_id(tool)
         if key not in self._panels:
             panel = ToolPanel(tool)
             self._panels[key] = panel
@@ -656,6 +743,21 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self._panels[key])
         if self.config.get("tool_sort_order", "Default") == "Recently Used":
             self._load_tools(active_tool_id=_tool_id(tool))
+
+    def _select_utility_page(self, page_id: str, btn: UtilityButton):
+        if self._active_btn:
+            self._active_btn.set_active(False)
+            self._active_btn = None
+        if self._active_utility_btn:
+            self._active_utility_btn.set_active(False)
+        btn.set_active(True)
+        self._active_utility_btn = btn
+
+        if page_id == "dependencies":
+            self.dependency_page.set_tools(self._tools, refresh=True)
+            self.stack.setCurrentWidget(self.dependency_page)
+        elif page_id == "about":
+            self.stack.setCurrentWidget(self.about_page)
 
     def _filter_tools(self, text: str):
         q = text.strip().lower()
@@ -694,7 +796,8 @@ class MainWindow(QMainWindow):
             sort_order = "Default"
         self.config.set("tool_sort_order", sort_order)
         self.config.save()
-        self._load_tools()
+        active_tool_id = _tool_id(self._active_btn.tool) if self._active_btn else None
+        self._load_tools(active_tool_id=active_tool_id)
 
     def _is_favorite(self, tool: ToolDefinition) -> bool:
         return _tool_id(tool) in self.config.get("favorite_tools", [])
@@ -702,7 +805,7 @@ class MainWindow(QMainWindow):
     def _toggle_favorite(self, tool: ToolDefinition):
         active_tool_id = _tool_id(self._active_btn.tool) if self._active_btn else None
         tool_id = _tool_id(tool)
-        favorites = self.config.get("favorite_tools", [])
+        favorites = self._current_favorite_tool_ids()
         if tool_id in favorites:
             favorites.remove(tool_id)
         else:
@@ -715,8 +818,9 @@ class MainWindow(QMainWindow):
         dlg = WizardDialog(self.tools_dir, self, edit_tool=tool)
         if dlg.exec():
             # Clear cached panel so it rebuilds with updated config
-            if tool.name in self._panels:
-                old_panel = self._panels.pop(tool.name)
+            tool_id = _tool_id(tool)
+            if tool_id in self._panels:
+                old_panel = self._panels.pop(tool_id)
                 self.stack.removeWidget(old_panel)
                 old_panel.deleteLater()
             self._active_btn = None
@@ -759,8 +863,9 @@ class MainWindow(QMainWindow):
             return
 
         # Clear cached panel
-        if tool.name in self._panels:
-            old_panel = self._panels.pop(tool.name)
+        tool_id = _tool_id(tool)
+        if tool_id in self._panels:
+            old_panel = self._panels.pop(tool_id)
             self.stack.removeWidget(old_panel)
             old_panel.deleteLater()
 
@@ -769,10 +874,14 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(0)  # back to welcome screen
 
         favorites = self.config.get("favorite_tools", [])
-        tool_id = _tool_id(tool)
         if tool_id in favorites:
             favorites.remove(tool_id)
             self.config.set("favorite_tools", favorites)
+            self.config.save()
+
+        recent = self.config.get("recent_tools", [])
+        if tool_id in recent:
+            self.config.set("recent_tools", [item for item in recent if item != tool_id])
             self.config.save()
 
         self._load_tools()

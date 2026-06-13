@@ -5,6 +5,12 @@ icon = "ti-file-type-pdf"
 script = "txt_to_pdf.py"
 long_running = false
 
+[[dependencies]]
+import = "reportlab"
+package = "reportlab"
+version = ">=4.1.0"
+notes = "PDF generation"
+
 [[params]]
 id = "input_dir"
 label = "Folder with TXT files"

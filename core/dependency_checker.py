@@ -25,6 +25,40 @@ AvailabilityChecker = Callable[[str, dict[str, str] | None, str], bool]
 class MissingDependency:
     import_name: str
     package_name: str
+    version: str = ""
+
+    @property
+    def install_spec(self) -> str:
+        return f"{self.package_name}{self.version}" if self.version else self.package_name
+
+
+@dataclass(frozen=True)
+class DependencySpec:
+    import_name: str
+    package_name: str
+    version: str = ""
+    notes: str = ""
+    source: str = "auto-detected"
+
+    @property
+    def install_spec(self) -> str:
+        return f"{self.package_name}{self.version}" if self.version else self.package_name
+
+
+@dataclass(frozen=True)
+class DependencyStatus:
+    tool_name: str
+    tool_id: str
+    import_name: str
+    package_name: str
+    version: str
+    notes: str
+    source: str
+    status: str
+
+    @property
+    def install_spec(self) -> str:
+        return f"{self.package_name}{self.version}" if self.version else self.package_name
 
 
 def imported_modules_from_script(script_path: str | Path) -> list[str]:
@@ -48,6 +82,68 @@ def imported_modules_from_script(script_path: str | Path) -> list[str]:
                 modules.add(module)
 
     return sorted(modules, key=str.casefold)
+
+
+def dependency_specs_for_tool(tool) -> list[DependencySpec]:
+    specs: dict[str, DependencySpec] = {}
+
+    for dependency in getattr(tool, "dependencies", []):
+        import_name = getattr(dependency, "import_name", "").strip()
+        if not import_name:
+            continue
+        package_name = getattr(dependency, "package_name", "").strip() or package_name_for_import(import_name)
+        specs[import_name] = DependencySpec(
+            import_name=import_name,
+            package_name=package_name,
+            version=getattr(dependency, "version", "").strip(),
+            notes=getattr(dependency, "notes", "").strip(),
+            source="tool.toml",
+        )
+
+    try:
+        detected_modules = imported_modules_from_script(getattr(tool, "script_path"))
+    except (OSError, SyntaxError, TypeError):
+        detected_modules = []
+
+    for module in detected_modules:
+        if module in specs:
+            continue
+        specs[module] = DependencySpec(
+            import_name=module,
+            package_name=package_name_for_import(module),
+            source="auto-detected",
+        )
+
+    return sorted(specs.values(), key=lambda spec: spec.import_name.casefold())
+
+
+def dependency_statuses_for_tools(
+    tools,
+    python_executable: str,
+    env: dict[str, str] | None = None,
+    availability_checker: AvailabilityChecker | None = None,
+) -> list[DependencyStatus]:
+    checker = availability_checker or module_is_available
+    statuses: list[DependencyStatus] = []
+
+    for tool in tools:
+        tool_id = getattr(getattr(tool, "folder", None), "name", "")
+        for spec in dependency_specs_for_tool(tool):
+            installed = checker(python_executable, env, spec.import_name)
+            statuses.append(
+                DependencyStatus(
+                    tool_name=getattr(tool, "name", tool_id),
+                    tool_id=tool_id,
+                    import_name=spec.import_name,
+                    package_name=spec.package_name,
+                    version=spec.version,
+                    notes=spec.notes,
+                    source=spec.source,
+                    status="installed" if installed else "missing",
+                )
+            )
+
+    return statuses
 
 
 def find_missing_dependencies(

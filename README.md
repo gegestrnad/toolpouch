@@ -15,6 +15,7 @@ A modular, extensible GUI for Python utility scripts. Drop in a new tool folder 
 - Per-user configuration stored at ~/.toolpouch (theme, window geometry, recent tools)
 - Execution logging (logs in ~/.toolpouch/logs)
 - Tool export/import support using `.toolpouch` ZIP packages
+- Dependency manager page for checking, installing, and uninstalling Python packages per tool
 - Input validation and safer TOML generation (quotes escaped)
 - Better packaged runtime behavior when running as a PyInstaller bundle
 
@@ -112,11 +113,23 @@ required = true
 icon = "ti-settings"
 ```
 
+Optional dependency metadata can be added when a tool needs third-party Python packages:
+
+```toml
+[[dependencies]]
+import = "fitz"
+package = "PyMuPDF"
+version = ">=1.24"
+notes = "PDF parsing"
+```
+
+Tool Pouch also scans script imports automatically. The metadata block is useful when the pip package name differs from the import name, when a version spec matters, or when you want notes to appear on the **Dependencies** page.
+
 **Script requirements:**
 - Accept all parameters via `argparse` with `--param_id` flags matching your `tool.toml` param IDs
 - Print `PROGRESS:N` (0-100) to stdout to update the progress bar
 - Prefix log lines with `[OK]`, `[WARN]`, or `[ERROR]` for color-coded output
-- For packaged builds, custom tools that need extra third-party packages must have those packages added to the portable runtime during build, or be run from source with the dependencies installed in your development Python environment
+- For packaged builds, custom tools that need extra third-party packages must have those packages added to the portable runtime during build, installed from the **Dependencies** page, or be run from source with the dependencies installed in your development Python environment
 
 ```python
 import argparse, sys

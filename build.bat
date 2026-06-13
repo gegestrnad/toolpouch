@@ -80,6 +80,9 @@ python -m pip install ^
   --upgrade ^
   --target "%SITE_PACKAGES%" ^
   --no-cache-dir ^
+  pip ^
+  setuptools ^
+  wheel ^
   requests ^
   beautifulsoup4 ^
   reportlab ^
