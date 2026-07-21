@@ -1,30 +1,40 @@
-# Python caches
-__pycache__/
-*.py[cod]
-*$py.class
+```
+# Compiled and build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
+# Dependencies
+vendor/
+*.mod
+*.sum
 
-# Build and packaging output
-build/
-dist/
-*.spec
-
-# ToolPouch local runtime/config artifacts
-.toolpouch/
-*.toolpouch
-
-# Logs and temporary files
+# Logs and temp files
 *.log
 *.tmp
-*.bak
+*.swp
 
-# Editor and OS files
-.idea/
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
 .vscode/
-.DS_Store
-Thumbs.db
+.idea/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Build directories
+bin/
+target/
+build/
+dist/
+```
