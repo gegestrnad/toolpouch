@@ -41,7 +41,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['D:\\Document\\Project\\toolpouch-v3\\assets\\icon.ico'],
+    icon=['assets\\\\icon.ico'],
 )
 coll = COLLECT(
     exe,
