@@ -21,7 +21,10 @@
 ; =============================================================================
 
 #define MyAppName          "Tool Pouch"
+; Version passed from CI via /dMY_APP_VERSION=... or defaults to 3.0.0
+#ifndef MyAppVersion
 #define MyAppVersion       "3.0.0"
+#endif
 #define MyAppPublisher     "ToolPouch"
 #define MyAppExeName       "ToolPouch.exe"
 #define MyAppSourceDir     "..\dist\ToolPouch"

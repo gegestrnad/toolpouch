@@ -16,23 +16,41 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.12'
-  # Use a specific PyInstaller version known to work with Python 3.12
   PYINSTALLER_VERSION: '6.11.1'
 
 jobs:
   build-windows:
     name: Build Windows Installer
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45  # PyInstaller can be slow on GH runners
 
     steps:
       # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # needed for tags/history
+          fetch-depth: 0
 
-      # 2. Setup Python
+      # 2. Extract version from tag (push) or workflow_dispatch input
+      - name: Extract version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $raw = "${{ github.ref_name }}"
+          } else {
+            $raw = "${{ github.event.inputs.version }}"
+          }
+          $ver = $raw
+          if ($ver.StartsWith('v')) { $ver = $ver.Substring(1) }
+          if ([string]::IsNullOrEmpty($ver)) {
+            Write-Error "Could not determine version from: $raw"
+            exit 1
+          }
+          echo "APP_VERSION=$ver" >> $env:GITHUB_ENV
+          echo "APP_TAG=$raw" >> $env:GITHUB_ENV
+          Write-Host "Version: $ver (tag/input: $raw)"
+
+      # 3. Setup Python
       - name: Setup Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
@@ -40,14 +58,14 @@ jobs:
           cache: 'pip'
           cache-dependency-path: requirements.txt
 
-      # 3. Install Python dependencies
+      # 4. Install Python dependencies
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller==${{ env.PYINSTALLER_VERSION }}
           pip install -r requirements.txt
 
-      # 4. Download & extract embeddable Python (fallback for .py tools on machines without Python)
+      # 5. Download embeddable Python (fallback for .py tools on machines without Python)
       - name: Download embeddable Python
         shell: pwsh
         run: |
@@ -59,18 +77,16 @@ jobs:
           $zipPath = "$env:TEMP/python-embed.zip"
           Invoke-WebRequest -Uri $embedUrl -OutFile $zipPath
           Expand-Archive -Path $zipPath -DestinationPath $embedDir -Force
-          # Ensure python.exe exists
           if (-not (Test-Path "$embedDir/python.exe")) {
             Write-Error "python.exe not found in extracted embeddable Python"
             exit 1
           }
           Write-Host "Embeddable Python ready at $embedDir"
 
-      # 5. Download & install Inno Setup
+      # 6. Install Inno Setup (Chocolatey is fastest on GH runners)
       - name: Install Inno Setup
         shell: pwsh
         run: |
-          # Try Chocolatey first (fastest, most reliable on GitHub Actions)
           if (Get-Command choco -ErrorAction SilentlyContinue) {
             Write-Host "Installing Inno Setup via Chocolatey..."
             choco install innosetup -y --no-progress
@@ -84,94 +100,78 @@ jobs:
               exit 0
             }
           }
-          
-          # Fallback: Direct download from JR Software
-          Write-Host "Chocolatey not available or failed, trying direct download..."
-          # Inno Setup 6.2.2 (current stable as of 2024) direct download
+          Write-Host "Chocolatey not available, trying direct download..."
           $isccUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
           $isccInstaller = "$env:TEMP\innosetup.exe"
-          
           try {
-            Write-Host "Downloading from $isccUrl ..."
             Invoke-WebRequest -Uri $isccUrl -OutFile $isccInstaller -ErrorAction Stop
-            
-            # Verify it's a valid PE executable (not HTML)
             $header = Get-Content -Path $isccInstaller -TotalCount 2 -Raw -Encoding Byte
-            if ($header[0] -ne 0x4D -or $header[1] -ne 0x5A) {  # MZ header
-              Write-Error "Downloaded file is not a valid executable (likely HTML redirect)"
-              Remove-Item -Force $isccInstaller -ErrorAction SilentlyContinue
-              throw "Invalid download"
+            if ($header[0] -ne 0x4D -or $header[1] -ne 0x5A) {
+              throw "Downloaded file is not a valid PE executable"
             }
-            
-            Write-Host "Installing Inno Setup silently..."
             Start-Process -FilePath $isccInstaller -ArgumentList "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait
-            
             $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
             if (-not (Test-Path $isccPath)) {
               $isccPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
             }
-            if (-not (Test-Path $isccPath)) {
-              Write-Error "ISCC.exe not found after Inno Setup install"
-              exit 1
-            }
+            if (-not (Test-Path $isccPath)) { throw "ISCC.exe not found after install" }
             echo "ISCC=$isccPath" >> $env:GITHUB_ENV
-            Write-Host "Inno Setup installed: $isccPath"
-          }
-          catch {
+          } catch {
             Write-Error "Failed to install Inno Setup: $_"
             exit 1
           }
 
-      # 6. Build with PyInstaller
+      # 7. Build with PyInstaller (uses root ToolPouch.spec, NOT installer/ToolPouch.spec)
       - name: Build with PyInstaller
         run: |
           pyinstaller --noconfirm --clean --distpath "dist" --workpath "build" ToolPouch.spec
 
-      # 7. Verify the executable exists and runs
-      - name: Verify executable
+      # 8. Verify executable exists (do NOT run --help on a GUI app — it hangs forever)
+      - name: Verify executable exists
+        shell: pwsh
         run: |
           $exePath = "dist\ToolPouch\ToolPouch.exe"
           if (-not (Test-Path $exePath)) {
             Write-Error "Executable not found at $exePath"
             exit 1
           }
-          # Quick smoke test - run with --version or similar if available, otherwise just check it starts
-          & $exePath --help 2>&1 | Select-Object -First 5
-          Write-Host "Executable verified: $exePath"
+          $size = (Get-Item $exePath).Length
+          Write-Host "Executable verified: $exePath ($([math]::Round($size / 1MB, 2)) MB)"
 
-      # 8. Build installer with Inno Setup
+      # 9. Build installer with Inno Setup (pass version from tag)
       - name: Build installer with Inno Setup
+        shell: pwsh
         run: |
-          & $env:ISCC installer/toolpouch.iss
-          $installerPath = "dist\installer\ToolPouch-Setup-3.0.0.exe"
-          if (-not (Test-Path $installerPath)) {
-            Write-Error "Installer not found at $installerPath"
+          & $env:ISCC "/dMyAppVersion=$env:APP_VERSION" installer/toolpouch.iss
+          $searchPath = "dist\installer\ToolPouch-Setup-*.exe"
+          $installer = Get-Item $searchPath | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "Installer not found matching $searchPath"
             exit 1
           }
-          Write-Host "Installer created: $installerPath"
+          Write-Host "Installer created: $($installer.FullName) ($([math]::Round($installer.Length / 1MB, 2)) MB)"
 
-      # 9. Create release
+      # 10. Create GitHub Release with both files
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Tool Pouch ${{ github.ref_name }}
+          name: Tool Pouch ${{ env.APP_VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            dist/installer/ToolPouch-Setup-3.0.0.exe
+            dist/installer/ToolPouch-Setup-*.exe
             dist/ToolPouch/ToolPouch.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 10. Upload build artifacts (for debugging / non-release runs)
+      # 11. Upload build artifacts (always, for debugging)
       - name: Upload build artifacts
-        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: toolpouch-build-${{ github.run_id }}
           path: |
             dist/ToolPouch/ToolPouch.exe
-            dist/installer/ToolPouch-Setup-3.0.0.exe
+            dist/installer/ToolPouch-Setup-*.exe
           retention-days: 7
