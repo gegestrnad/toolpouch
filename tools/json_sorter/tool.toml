@@ -1,0 +1,34 @@
+[tool]
+name = "JSON Sorter"
+description = "Sorts JSON object keys alphabetically and pretty-prints the result"
+icon = "ti-arrows-sort"
+script = "json_sorter.js"
+long_running = false
+runtime = "node"
+
+[[params]]
+id = "input_file"
+label = "Input JSON file"
+type = "file"
+filter = "*.json"
+placeholder = "Select a .json file"
+required = true
+icon = "ti-file-text"
+
+[[params]]
+id = "output_file"
+label = "Output file (empty = overwrite)"
+type = "save"
+filter = "*.json"
+placeholder = "Leave empty to overwrite input"
+required = false
+icon = "ti-file-export"
+
+[[params]]
+id = "indent"
+label = "Indentation (spaces)"
+type = "dropdown"
+options = ["2", "4", "tab"]
+default = "2"
+required = true
+icon = "ti-indent-increase"

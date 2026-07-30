@@ -1,0 +1,35 @@
+# Build outputs
+build/
+dist/
+installer/dist/
+
+# Packaged / generated artifacts
+*.exe
+*.msi
+*.rar
+*.zip
+*.7z
+*.log
+
+# Python cache / tooling
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+
+# Local app state
+.toolpouch/

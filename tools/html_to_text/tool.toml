@@ -1,0 +1,28 @@
+[tool]
+name = "HTML to Text"
+description = "Convert HTML files to plain text"
+author = "ToolPouch"
+category = "Text Processing"
+icon = "🌐"
+script = "html_to_text.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "HTML File"
+type = "File"
+required = true
+
+[[params]]
+id = "output_file"
+label = "Output File"
+type = "Text"
+default_value = ""
+placeholder = "Auto-generated from input name"
+required = false
+
+[[dependencies]]
+id = "beautifulsoup4"
+import_name = "bs4"
+package_name = "beautifulsoup4"
+min_version = "4.12"

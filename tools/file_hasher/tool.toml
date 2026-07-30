@@ -1,0 +1,14 @@
+[tool]
+name = "File Hasher"
+description = "Calculate file hashes using a batch script"
+author = "ToolPouch"
+category = "File Utilities"
+icon = "🔐"
+script = "file_hasher.bat"
+long_running = false
+
+[[params]]
+id = "file"
+label = "File to Hash"
+type = "File"
+required = true

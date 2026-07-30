@@ -1,0 +1,14 @@
+[tool]
+name = "Hello Python"
+description = "Multi-language runtime test tool — verifies .py execution and arg-with-spaces passing"
+icon = "ti-language"
+script = "hello.py"
+long_running = false
+
+[[params]]
+id = "path"
+label = "A path (try with spaces)"
+type = "text"
+placeholder = "C:\\Test Folder (2026)\\file.txt"
+required = true
+icon = "ti-folder"

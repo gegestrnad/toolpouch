@@ -1,0 +1,57 @@
+[tool]
+name = "Book Context Finder"
+description = "Searches books and text files for keywords and saves surrounding context snippets as Markdown"
+icon = "ti-book"
+script = "book_context_finder.py"
+long_running = true
+
+[[params]]
+id = "input_dir"
+label = "Book folder"
+type = "folder"
+placeholder = "Optional folder containing PDF, EPUB, TXT, MD, HTML, HTM, or XHTML files"
+required = false
+icon = "ti-folder"
+
+[[params]]
+id = "selected_files"
+label = "Selected book files"
+type = "files"
+filter = "*.pdf *.epub *.txt *.md *.html *.htm *.xhtml"
+placeholder = "Optional book/text files selected manually"
+required = false
+icon = "ti-files"
+
+[[params]]
+id = "keywords"
+label = "Keywords"
+type = "text"
+placeholder = "Comma, semicolon, or newline separated keywords/phrases"
+required = true
+icon = "ti-list-search"
+
+[[params]]
+id = "context_chars"
+label = "Context characters"
+type = "text"
+placeholder = "700"
+required = false
+icon = "ti-text-size"
+
+[[params]]
+id = "scan_scope"
+label = "Scan scope"
+type = "dropdown"
+required = true
+icon = "ti-folders"
+options = ["selected folder only", "include subfolders"]
+default = "include subfolders"
+
+[[params]]
+id = "output_file"
+label = "Output Markdown path"
+type = "save"
+filter = "*.md"
+placeholder = "Leave empty to save a timestamped Markdown report automatically"
+required = false
+icon = "ti-file-export"

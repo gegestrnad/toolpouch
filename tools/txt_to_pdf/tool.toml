@@ -1,0 +1,30 @@
+[tool]
+name = "TXT to PDF"
+description = "Merges all TXT and Markdown files in a folder into a single formatted PDF document"
+icon = "ti-file-type-pdf"
+script = "txt_to_pdf.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder with TXT/MD files"
+type = "folder"
+placeholder = "Select folder containing .txt or .md files"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "output_file"
+label = "Output PDF path"
+type = "save"
+filter = "*.pdf"
+placeholder = "_merged_output.pdf"
+required = false
+icon = "ti-file-type-pdf"
+
+[[dependencies]]
+import = "reportlab"
+package = "reportlab"
+version = ">=4.1"
+ecosystem = "python"
+notes = "PDF generation"

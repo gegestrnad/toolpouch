@@ -1,0 +1,30 @@
+[tool]
+name = "Base64 Converter"
+description = "Encode or decode files to/from Base64"
+author = "ToolPouch"
+category = "File Utilities"
+icon = "🔄"
+script = "base64_converter.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "Input File"
+type = "File"
+required = true
+
+[[params]]
+id = "action"
+label = "Action"
+type = "Select"
+options = "encode,decode"
+default_value = "encode"
+required = false
+
+[[params]]
+id = "output_file"
+label = "Output File"
+type = "Text"
+default_value = ""
+placeholder = "Auto-generated"
+required = false

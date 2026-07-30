@@ -1,0 +1,16 @@
+[tool]
+name = "Environment Inspector"
+description = "Lists environment variables, optionally filtered by name pattern"
+icon = "ti-terminal-2"
+script = "env_inspector.bat"
+long_running = false
+runtime = "cmd"
+
+[[params]]
+id = "filter"
+label = "Name filter (substring match, empty = all)"
+type = "text"
+placeholder = "e.g. PATH, USER, APPDATA"
+default = ""
+required = false
+icon = "ti-filter"

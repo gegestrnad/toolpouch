@@ -1,0 +1,22 @@
+[tool]
+name = "Duplicate Finder"
+description = "Find duplicate files by content hash"
+author = "ToolPouch"
+category = "File Utilities"
+icon = "🔍"
+script = "duplicate_finder.py"
+long_running = false
+
+[[params]]
+id = "folder"
+label = "Folder to Scan"
+type = "Folder"
+required = true
+
+[[params]]
+id = "hash_type"
+label = "Hash Algorithm"
+type = "Select"
+options = "md5,sha256,sha1"
+default_value = "md5"
+required = false

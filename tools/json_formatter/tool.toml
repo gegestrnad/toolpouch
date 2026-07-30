@@ -1,0 +1,28 @@
+[tool]
+name = "JSON Formatter"
+description = "Pretty-print or compact JSON files"
+author = "ToolPouch"
+category = "Data Processing"
+icon = "📋"
+script = "json_formatter.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "JSON File"
+type = "File"
+required = true
+
+[[params]]
+id = "indent"
+label = "Indentation"
+type = "Number"
+default_value = "4"
+required = false
+
+[[params]]
+id = "compact"
+label = "Compact Mode"
+type = "Bool"
+default_value = "false"
+required = false

@@ -1,0 +1,31 @@
+[tool]
+name = "Music Artist Organizer"
+description = "Organizes music files into folders named from artist metadata"
+icon = "ti-music"
+script = "music_artist_organizer.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Music folder"
+type = "folder"
+placeholder = "Optional folder containing unorganized music files"
+required = false
+icon = "ti-folder"
+
+[[params]]
+id = "selected_files"
+label = "Selected music files"
+type = "files"
+filter = "*.mp3 *.flac *.m4a *.ogg *.opus *.wav *.wma *.aac"
+placeholder = "Optional music files selected manually"
+required = false
+icon = "ti-files"
+
+[[params]]
+id = "file_glob"
+label = "File glob"
+type = "text"
+placeholder = "*.mp3;*.flac;*.m4a;*.ogg;*.opus;*.wav;*.wma;*.aac"
+required = false
+icon = "ti-filter"

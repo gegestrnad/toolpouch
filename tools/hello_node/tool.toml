@@ -1,0 +1,15 @@
+[tool]
+name = "Hello Node"
+description = "Multi-language runtime test tool — verifies .js execution and arg-with-spaces passing"
+icon = "ti-language"
+script = "hello.js"
+long_running = false
+runtime = "node"
+
+[[params]]
+id = "path"
+label = "A path (try with spaces)"
+type = "text"
+placeholder = "C:\\Test Folder (2026)\\file.txt"
+required = true
+icon = "ti-folder"

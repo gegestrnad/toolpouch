@@ -1,0 +1,15 @@
+[tool]
+name = "Hello Batch"
+description = "Multi-language runtime test tool — verifies .bat execution and arg-with-spaces passing"
+icon = "ti-language"
+script = "hello.bat"
+long_running = false
+runtime = "cmd"
+
+[[params]]
+id = "path"
+label = "A path (try with spaces)"
+type = "text"
+placeholder = "C:\\Test Folder (2026)\\file.txt"
+required = true
+icon = "ti-folder"

@@ -1,0 +1,21 @@
+[tool]
+name = "Find Long Lines"
+description = "Find lines exceeding a maximum character length"
+author = "ToolPouch"
+category = "Text Processing"
+icon = "📏"
+script = "find_long_lines.py"
+long_running = false
+
+[[params]]
+id = "file"
+label = "Input File"
+type = "File"
+required = true
+
+[[params]]
+id = "max_length"
+label = "Max Length (chars)"
+type = "Number"
+default_value = "80"
+required = false

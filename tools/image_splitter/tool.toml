@@ -1,0 +1,38 @@
+[tool]
+name = "Image Splitter"
+description = "Split an image into a grid of smaller images"
+author = "ToolPouch"
+category = "Image Processing"
+icon = "✂️"
+script = "image_splitter.py"
+long_running = false
+
+[[params]]
+id = "image"
+label = "Image File"
+type = "File"
+required = true
+
+[[params]]
+id = "rows"
+label = "Rows"
+type = "Number"
+required = true
+
+[[params]]
+id = "cols"
+label = "Columns"
+type = "Number"
+required = true
+
+[[params]]
+id = "output_dir"
+label = "Output Directory"
+type = "Folder"
+required = true
+
+[[dependencies]]
+id = "Pillow"
+import_name = "PIL"
+package_name = "Pillow"
+min_version = "10.0"

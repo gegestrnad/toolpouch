@@ -1,0 +1,14 @@
+[tool]
+name = "Count Characters"
+description = "Count characters, words, and lines in a text file"
+author = "ToolPouch"
+category = "Text Processing"
+icon = "🔢"
+script = "count_chars.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "Input File"
+type = "File"
+required = true

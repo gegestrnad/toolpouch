@@ -1,0 +1,21 @@
+[tool]
+name = "CSV Previewer"
+description = "Preview CSV file contents in a formatted table"
+author = "ToolPouch"
+category = "Data Processing"
+icon = "📊"
+script = "csv_previewer.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "CSV File"
+type = "File"
+required = true
+
+[[params]]
+id = "max_rows"
+label = "Max Rows to Show"
+type = "Number"
+default_value = "10"
+required = false

@@ -1,0 +1,16 @@
+[tool]
+name = "IP Config Viewer"
+description = "Shows Windows network configuration (ipconfig /all output)"
+icon = "ti-network"
+script = "ipconfig_viewer.bat"
+long_running = false
+runtime = "cmd"
+
+[[params]]
+id = "component"
+label = "Component to show"
+type = "dropdown"
+options = ["all", "ipconfig", "dns", "adapter"]
+default = "all"
+required = true
+icon = "ti-settings"

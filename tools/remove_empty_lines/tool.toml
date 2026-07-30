@@ -1,0 +1,24 @@
+[tool]
+name = "Remove Empty Lines"
+description = "Strips blank lines from a text file (in-place or to a new file)"
+icon = "ti-eraser"
+script = "remove_empty_lines.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "Input text file"
+type = "file"
+filter = "*.txt *.md *.log *.csv"
+placeholder = "Select a text file"
+required = true
+icon = "ti-file-text"
+
+[[params]]
+id = "output_file"
+label = "Output file (empty = overwrite input)"
+type = "save"
+filter = "*.txt"
+placeholder = "Leave empty to overwrite the input file"
+required = false
+icon = "ti-file-export"

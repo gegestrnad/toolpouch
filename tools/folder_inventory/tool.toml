@@ -1,0 +1,41 @@
+[tool]
+name = "Folder Inventory"
+description = "Exports a CSV or Markdown report of files, sizes, extensions, dates, and paths"
+icon = "ti-folder-search"
+script = "folder_inventory.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Folder to inventory"
+type = "folder"
+placeholder = "Select folder"
+required = true
+icon = "ti-folder"
+
+[[params]]
+id = "output_format"
+label = "Output format"
+type = "dropdown"
+options = ["csv", "md"]
+default = "csv"
+required = true
+icon = "ti-file-export"
+
+[[params]]
+id = "include_subfolders"
+label = "Include subfolders"
+type = "dropdown"
+options = ["yes", "no"]
+default = "yes"
+required = true
+icon = "ti-folders"
+
+[[params]]
+id = "output_file"
+label = "Output file"
+type = "save"
+filter = "*.csv *.md"
+placeholder = "folder_inventory.csv"
+required = false
+icon = "ti-file-spreadsheet"

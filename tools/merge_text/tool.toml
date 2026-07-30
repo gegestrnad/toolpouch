@@ -1,0 +1,22 @@
+[tool]
+name = "Merge Text"
+description = "Merge multiple text files into one"
+author = "ToolPouch"
+category = "Text Processing"
+icon = "📝"
+script = "merge_text.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Input Directory"
+type = "Folder"
+required = true
+
+[[params]]
+id = "output_file"
+label = "Output Filename"
+type = "Text"
+default_value = "_merged.txt"
+placeholder = "_merged.txt"
+required = false

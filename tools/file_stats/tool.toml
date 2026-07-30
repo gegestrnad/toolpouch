@@ -1,0 +1,14 @@
+[tool]
+name = "File Stats"
+description = "Display file/directory statistics (size, dates, permissions)"
+author = "ToolPouch"
+category = "File Utilities"
+icon = "📁"
+script = "file_stats.py"
+long_running = false
+
+[[params]]
+id = "path"
+label = "File or Folder"
+type = "File"
+required = true

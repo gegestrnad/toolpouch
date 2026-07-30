@@ -1,0 +1,24 @@
+[tool]
+name = "Process List"
+description = "Lists running Windows processes sorted by memory usage (top N)"
+icon = "ti-cpu"
+script = "process_list.ps1"
+long_running = false
+
+[[params]]
+id = "count"
+label = "Number of processes to show"
+type = "text"
+placeholder = "20"
+default = "20"
+required = false
+icon = "ti-list-numbers"
+
+[[params]]
+id = "sort_by"
+label = "Sort by"
+type = "dropdown"
+options = ["memory", "cpu", "name"]
+default = "memory"
+required = true
+icon = "ti-sort-ascending"

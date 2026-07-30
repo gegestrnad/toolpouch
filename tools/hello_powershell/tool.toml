@@ -1,0 +1,14 @@
+[tool]
+name = "Hello PowerShell"
+description = "Multi-language runtime test tool — verifies .ps1 execution and arg-with-spaces passing"
+icon = "ti-language"
+script = "hello.ps1"
+long_running = false
+
+[[params]]
+id = "path"
+label = "A path (try with spaces)"
+type = "text"
+placeholder = "C:\\Test Folder (2026)\\file.txt"
+required = true
+icon = "ti-folder"

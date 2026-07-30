@@ -1,0 +1,61 @@
+[tool]
+name = "Movie Organizer"
+description = "Organizes loose movie files into matching per-movie folders"
+icon = "ti-tool"
+script = "movie_organizer.py"
+long_running = false
+
+[[params]]
+id = "input_dir"
+label = "Movie folder"
+type = "folder"
+placeholder = "Optional scan folder or output destination"
+icon = "ti-folder"
+
+[[params]]
+id = "file_glob"
+label = "File glob"
+type = "text"
+placeholder = "*.mkv;*.mp4;*.avi;*.mov;*.wmv;*.srt;*.ass;*.ssa;*.sub;*.idx;*.nfo;*.jpg;*.jpeg;*.png"
+icon = "ti-tool"
+
+[[params]]
+id = "selected_files"
+label = "Selected files"
+type = "files"
+placeholder = "Optional files selected manually"
+icon = "ti-tool"
+
+[[params]]
+id = "manual_folder_name"
+label = "Manual folder name"
+type = "text"
+placeholder = "Optional folder name for manual files"
+icon = "ti-tool"
+
+[[params]]
+id = "matching_strategy"
+label = "Matching strategy"
+type = "dropdown"
+required = true
+icon = "ti-tool"
+options = ["exact stem", "smart subtitle match", "year-based smart"]
+default = "exact stem"
+
+[[params]]
+id = "scan_scope"
+label = "Scan scope"
+type = "dropdown"
+required = true
+icon = "ti-tool"
+options = ["selected folder only", "include subfolders"]
+default = "selected folder only"
+
+[[params]]
+id = "mode"
+label = "Mode"
+type = "dropdown"
+required = true
+icon = "ti-tool"
+options = ["preview", "organize"]
+default = "organize"

@@ -1,0 +1,30 @@
+# Tool Pouch v3 — runtime + build-time dependencies
+#
+# Runtime (REQUIRED for the host UI):
+#   - customtkinter : the UI framework itself
+#   - darkdetect    : CTk dependency for OS dark-mode detection
+#   - tkinterdnd2   : drag-and-drop support for folder/file fields
+#                    (optional in code; required for DnD to work)
+#   - pillow        : image loading for sidebar language icons (CTkImage
+#                    uses PIL internally). Also a CTk dependency for
+#                    image widgets, so it's needed regardless.
+#
+# Build-time (only needed to produce a Windows .exe):
+#   - pyinstaller   : bundles the host app + its Python + CTk deps
+#
+# Stdlib (no install needed, ships with CPython):
+#   - tomllib       : TOML parsing (3.11+) — for 3.10 the tomli
+#                     backport is auto-loaded by core/tool_loader.py
+#   - tkinter       : ships with CPython on Windows; on Linux distros
+#                     may need:  sudo apt install python3-tk
+
+customtkinter>=5.2.0
+darkdetect>=0.8.0
+tkinterdnd2>=0.4.2
+pillow>=10.0.0
+
+# tomli backport for Python 3.10 only (3.11+ uses stdlib tomllib)
+tomli>=2.0.0; python_version < "3.11"
+
+# Build-time only — not needed at runtime:
+pyinstaller>=6.3.0; platform_system == "Windows"

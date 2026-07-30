@@ -1,0 +1,22 @@
+[tool]
+name = "Extract Numbers"
+description = "Extract all numbers from a text file"
+author = "ToolPouch"
+category = "Text Processing"
+icon = "🔢"
+script = "extract_numbers.py"
+long_running = false
+
+[[params]]
+id = "input_file"
+label = "Input File"
+type = "File"
+required = true
+
+[[params]]
+id = "output_file"
+label = "Output File"
+type = "Text"
+default_value = "numbers_extracted.txt"
+placeholder = "numbers_extracted.txt"
+required = false
