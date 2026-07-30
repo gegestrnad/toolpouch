@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import webbrowser
 
 import customtkinter as ctk
 
@@ -59,6 +60,13 @@ class AboutWindow(ctk.CTkToplevel):
             text_color="gray60",
             justify="left",
             font=ctk.CTkFont(size=11),
-        ).grid(row=3, column=0, pady=(0, 16))
+        ).grid(row=3, column=0, pady=(0, 12))
 
-        ctk.CTkButton(host, text="Close", width=90, command=self.destroy).grid(row=4, column=0)
+        ctk.CTkButton(
+            host,
+            text="Project repository",
+            width=160,
+            command=lambda: webbrowser.open_new_tab("https://github.com/gegestrnad/toolpouch"),
+        ).grid(row=4, column=0, pady=(0, 12))
+
+        ctk.CTkButton(host, text="Close", width=90, command=self.destroy).grid(row=5, column=0)
