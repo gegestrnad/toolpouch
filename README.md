@@ -51,9 +51,9 @@ Built with **CustomTkinter** — no Qt, lightweight, Windows-native.
 
 ## Requirements
 
-- **Runtime**: Windows 10/11 x64 (HiDPI / 4K friendly). Not cross-platform
-  — this is a deliberate decision (see `DECISIONS.md`). The installer
-  requires 64-bit Windows (`ArchitecturesAllowed=x64compatible`).
+- **Runtime**: Windows 10/11 x64 (HiDPI / 4K friendly). This repo is
+  Windows-only by design. The installer requires 64-bit Windows
+  (`ArchitecturesAllowed=x64compatible`).
 - **Development**: Python 3.12 or 3.13 (NOT 3.14 — PyInstaller 6.x
   doesn't support it yet). On 3.11+ uses stdlib `tomllib`; on 3.10 the
   `tomli` backport is auto-loaded.
@@ -326,26 +326,35 @@ output streams to the log box at the bottom. No cmd-window flashing
 
 ---
 
-## Included tools (36 total)
+## Included tools (34 total)
 
-### Python tools (27)
-Base64 Converter, Biosafety PDF to Excel, Book Context Finder, Count
-Characters, CSV Previewer, Duplicate Finder, Extract Numbers, File
-Hasher, File Stats, Filename Cleaner, Find Long Lines, Folder
-Inventory, HTML to Text, Image Splitter, JSON Formatter, JSON
-Translator, JSON Validator, Merge Text, Movie Organizer, Music Artist
-Organizer, Pattern Remover, Regex Extractor, Remove Empty Lines, RR
-Downloader, TXT Splitter, TXT to PDF, XHTML Converter
+### Python tools (25)
+Base64 Converter, Book Context Finder, Cleanup TXT, Count Characters,
+CSV Previewer, Duplicate Finder, Extract Numbers, File Stats,
+Filename Cleaner, Find Long Lines, Folder Inventory, HTML to Text,
+Image Splitter, JSON Formatter, JSON Translator, Merge Text, Movie
+Organizer, Music Artist Organizer, Pattern Remover, Regex Extractor,
+Remove Empty Lines, TXT Splitter, TXT to PDF, XHTML Converter
 
 ### Batch tools (4)
-File Hasher, Hello Batch, **IP Config Viewer**, **Environment
-Inspector**
+**Environment Inspector**, **File Hasher**, Hello Batch, **IP Config
+Viewer**
 
 ### PowerShell tools (2)
 Hello PowerShell, **Process List**
 
 ### JavaScript tools (3)
-Hello Node, JSON Validator, **JSON Sorter**
+Hello Node, **JSON Sorter**, **JSON Validator**
+
+---
+
+## Screenshots
+
+Current UI captures from `screenshots/`:
+
+![Tool Pouch main window](screenshots/Screenshot-1.jpg)
+
+![Tool Pouch tool list / details view](screenshots/Screenshot-2.jpg)
 
 ---
 
@@ -369,8 +378,6 @@ python scripts/runner_test.py
 
 ## Documentation
 
-- `DECISIONS.md` — framework/library choices and rationale
-- `PROGRESS.md` — phase-by-phase verification log
 - `BUILD.md` — Windows build quick reference
 - `INSTALLER_GUIDE.md` — full installer guide with troubleshooting
 - `AI_AGENT_GUIDE.md` — **guide for AI agents on how to create
@@ -378,6 +385,7 @@ python scripts/runner_test.py
   to write a Tool Pouch tool)
 - `installer/python-embed/README.md` — how to populate the fallback
   Python interpreter
+- `screenshots/` — current UI captures used in this README
 
 ---
 
