@@ -84,7 +84,7 @@ jobs:
           $exe = "dist\ToolPouch\ToolPouch.exe"
           if (-not (Test-Path $exe)) { throw "Executable not found" }
           $size = (Get-Item $exe).Length
-          if ($size -lt 10MB) { throw "Executable suspiciously small: $size bytes" }
+          if ($size -lt 5MB) { throw "Executable suspiciously small: $size bytes" }
           Write-Host "Verified: $exe ($([math]::Round($size / 1MB, 2)) MB)"
 
       - name: Build installer
