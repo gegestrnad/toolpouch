@@ -125,7 +125,7 @@ jobs:
       # 6. Build with PyInstaller
       - name: Build with PyInstaller
         run: |
-          pyinstaller --noconfirm --clean --distpath "dist" --workpath "build" installer/ToolPouch.spec
+          pyinstaller --noconfirm --clean --distpath "dist" --workpath "build" ToolPouch.spec
 
       # 7. Verify the executable exists and runs
       - name: Verify executable
