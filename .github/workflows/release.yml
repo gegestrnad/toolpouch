@@ -66,25 +66,61 @@ jobs:
           }
           Write-Host "Embeddable Python ready at $embedDir"
 
-      # 5. Download Inno Setup
-      - name: Download Inno Setup
+      # 5. Download & install Inno Setup
+      - name: Install Inno Setup
         shell: pwsh
         run: |
-          $isccUrl = "https://jrsoftware.org/download.php/is.exe"  # Inno Setup 6 installer
-          $isccInstaller = "$env:TEMP/is.exe"
-          Invoke-WebRequest -Uri $isccUrl -OutFile $isccInstaller
-          # Silent install
-          Start-Process -FilePath $isccInstaller -ArgumentList "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait
-          # Verify ISCC is available
-          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $isccPath)) {
-            $isccPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
+          # Try Chocolatey first (fastest, most reliable on GitHub Actions)
+          if (Get-Command choco -ErrorAction SilentlyContinue) {
+            Write-Host "Installing Inno Setup via Chocolatey..."
+            choco install innosetup -y --no-progress
+            $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            if (-not (Test-Path $isccPath)) {
+              $isccPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
+            }
+            if (Test-Path $isccPath) {
+              echo "ISCC=$isccPath" >> $env:GITHUB_ENV
+              Write-Host "Inno Setup installed via Chocolatey: $isccPath"
+              exit 0
+            }
           }
-          if (-not (Test-Path $isccPath)) {
-            Write-Error "ISCC.exe not found after Inno Setup install"
+          
+          # Fallback: Direct download from JR Software
+          Write-Host "Chocolatey not available or failed, trying direct download..."
+          # Inno Setup 6.2.2 (current stable as of 2024) direct download
+          $isccUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+          $isccInstaller = "$env:TEMP\innosetup.exe"
+          
+          try {
+            Write-Host "Downloading from $isccUrl ..."
+            Invoke-WebRequest -Uri $isccUrl -OutFile $isccInstaller -ErrorAction Stop
+            
+            # Verify it's a valid PE executable (not HTML)
+            $header = Get-Content -Path $isccInstaller -TotalCount 2 -Raw -Encoding Byte
+            if ($header[0] -ne 0x4D -or $header[1] -ne 0x5A) {  # MZ header
+              Write-Error "Downloaded file is not a valid executable (likely HTML redirect)"
+              Remove-Item -Force $isccInstaller -ErrorAction SilentlyContinue
+              throw "Invalid download"
+            }
+            
+            Write-Host "Installing Inno Setup silently..."
+            Start-Process -FilePath $isccInstaller -ArgumentList "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait
+            
+            $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+            if (-not (Test-Path $isccPath)) {
+              $isccPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
+            }
+            if (-not (Test-Path $isccPath)) {
+              Write-Error "ISCC.exe not found after Inno Setup install"
+              exit 1
+            }
+            echo "ISCC=$isccPath" >> $env:GITHUB_ENV
+            Write-Host "Inno Setup installed: $isccPath"
+          }
+          catch {
+            Write-Error "Failed to install Inno Setup: $_"
             exit 1
           }
-          echo "ISCC=$isccPath" >> $env:GITHUB_ENV
 
       # 6. Build with PyInstaller
       - name: Build with PyInstaller
