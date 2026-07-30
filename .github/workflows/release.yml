@@ -1,0 +1,141 @@
+name: Build & Release ToolPouch
+
+on:
+  push:
+    tags:
+      - 'v*'  # triggers on v1.0.0, v2.3.4, etc.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write  # needed to create releases
+
+env:
+  PYTHON_VERSION: '3.12'
+  # Use a specific PyInstaller version known to work with Python 3.12
+  PYINSTALLER_VERSION: '6.11.1'
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      # 1. Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for tags/history
+
+      # 2. Setup Python
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      # 3. Install Python dependencies
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller==${{ env.PYINSTALLER_VERSION }}
+          pip install -r requirements.txt
+
+      # 4. Download & extract embeddable Python (fallback for .py tools on machines without Python)
+      - name: Download embeddable Python
+        shell: pwsh
+        run: |
+          $embedUrl = "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip"
+          $embedDir = "installer/python-embed"
+          if (-not (Test-Path $embedDir)) {
+            New-Item -ItemType Directory -Path $embedDir -Force | Out-Null
+          }
+          $zipPath = "$env:TEMP/python-embed.zip"
+          Invoke-WebRequest -Uri $embedUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $embedDir -Force
+          # Ensure python.exe exists
+          if (-not (Test-Path "$embedDir/python.exe")) {
+            Write-Error "python.exe not found in extracted embeddable Python"
+            exit 1
+          }
+          Write-Host "Embeddable Python ready at $embedDir"
+
+      # 5. Download Inno Setup
+      - name: Download Inno Setup
+        shell: pwsh
+        run: |
+          $isccUrl = "https://jrsoftware.org/download.php/is.exe"  # Inno Setup 6 installer
+          $isccInstaller = "$env:TEMP/is.exe"
+          Invoke-WebRequest -Uri $isccUrl -OutFile $isccInstaller
+          # Silent install
+          Start-Process -FilePath $isccInstaller -ArgumentList "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait
+          # Verify ISCC is available
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+            $isccPath = "C:\Program Files\Inno Setup 6\ISCC.exe"
+          }
+          if (-not (Test-Path $isccPath)) {
+            Write-Error "ISCC.exe not found after Inno Setup install"
+            exit 1
+          }
+          echo "ISCC=$isccPath" >> $env:GITHUB_ENV
+
+      # 6. Build with PyInstaller
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --noconfirm --clean --distpath "dist" --workpath "build" installer/ToolPouch.spec
+
+      # 7. Verify the executable exists and runs
+      - name: Verify executable
+        run: |
+          $exePath = "dist\ToolPouch\ToolPouch.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "Executable not found at $exePath"
+            exit 1
+          }
+          # Quick smoke test - run with --version or similar if available, otherwise just check it starts
+          & $exePath --help 2>&1 | Select-Object -First 5
+          Write-Host "Executable verified: $exePath"
+
+      # 8. Build installer with Inno Setup
+      - name: Build installer with Inno Setup
+        run: |
+          & $env:ISCC installer/toolpouch.iss
+          $installerPath = "dist\installer\ToolPouch-Setup-3.0.0.exe"
+          if (-not (Test-Path $installerPath)) {
+            Write-Error "Installer not found at $installerPath"
+            exit 1
+          }
+          Write-Host "Installer created: $installerPath"
+
+      # 9. Create release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Tool Pouch ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/installer/ToolPouch-Setup-3.0.0.exe
+            dist/ToolPouch/ToolPouch.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 10. Upload build artifacts (for debugging / non-release runs)
+      - name: Upload build artifacts
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolpouch-build-${{ github.run_id }}
+          path: |
+            dist/ToolPouch/ToolPouch.exe
+            dist/installer/ToolPouch-Setup-3.0.0.exe
+          retention-days: 7
