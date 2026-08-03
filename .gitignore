@@ -1,35 +1,58 @@
-# Build outputs
-build/
-dist/
-installer/dist/
-
-# Packaged / generated artifacts
-*.exe
-*.msi
-*.rar
-*.zip
-*.7z
-*.log
-
-# Python cache / tooling
-__pycache__/
+```
+# Compiled and build artifacts
 *.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+__pycache__/
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.class
+*.out
 
-# Virtual environments
+# Dependencies
 .venv/
 venv/
-env/
+.env
+.env.local
+*.env.*
 
-# OS / editor cruft
+# Build directories
+dist/
+build/
+target/
+
+# Python specific
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# Local app state
-.toolpouch/
+```
