@@ -312,6 +312,74 @@ runtime = "ruby"
             # Unknown runtime value is silently ignored.
             self.assertEqual(tools[0].runtime, "")
 
+    def test_category_field_loaded(self):
+        with tempfile.TemporaryDirectory() as td:
+            tools_dir = Path(td)
+            (tools_dir / "t").mkdir()
+            (tools_dir / "t" / "tool.toml").write_text("""
+[tool]
+name = "T"
+description = "x"
+icon = "ti-tool"
+script = "x.py"
+long_running = false
+category = "File Utilities"
+""", encoding="utf-8")
+            (tools_dir / "t" / "x.py").write_text("print('hi')\n", encoding="utf-8")
+            tools = load_tools(tools_dir)
+            self.assertEqual(tools[0].category, "File Utilities")
+
+    def test_tags_field_loaded_as_list(self):
+        with tempfile.TemporaryDirectory() as td:
+            tools_dir = Path(td)
+            (tools_dir / "t").mkdir()
+            (tools_dir / "t" / "tool.toml").write_text("""
+[tool]
+name = "T"
+description = "x"
+icon = "ti-tool"
+script = "x.py"
+long_running = false
+tags = ["productivity", "batch"]
+""", encoding="utf-8")
+            (tools_dir / "t" / "x.py").write_text("print('hi')\n", encoding="utf-8")
+            tools = load_tools(tools_dir)
+            self.assertEqual(tools[0].tags, ["productivity", "batch"])
+
+    def test_tags_field_loaded_as_comma_string(self):
+        with tempfile.TemporaryDirectory() as td:
+            tools_dir = Path(td)
+            (tools_dir / "t").mkdir()
+            (tools_dir / "t" / "tool.toml").write_text("""
+[tool]
+name = "T"
+description = "x"
+icon = "ti-tool"
+script = "x.py"
+long_running = false
+tags = "fast,simple,utility"
+""", encoding="utf-8")
+            (tools_dir / "t" / "x.py").write_text("print('hi')\n", encoding="utf-8")
+            tools = load_tools(tools_dir)
+            self.assertEqual(tools[0].tags, ["fast", "simple", "utility"])
+
+    def test_missing_category_defaults_to_empty(self):
+        with tempfile.TemporaryDirectory() as td:
+            tools_dir = Path(td)
+            (tools_dir / "t").mkdir()
+            (tools_dir / "t" / "tool.toml").write_text("""
+[tool]
+name = "T"
+description = "x"
+icon = "ti-tool"
+script = "x.py"
+long_running = false
+""", encoding="utf-8")
+            (tools_dir / "t" / "x.py").write_text("print('hi')\n", encoding="utf-8")
+            tools = load_tools(tools_dir)
+            self.assertEqual(tools[0].category, "")
+            self.assertEqual(tools[0].tags, [])
+
 
 if __name__ == "__main__":
     unittest.main()

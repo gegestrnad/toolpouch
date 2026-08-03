@@ -40,6 +40,7 @@ class Sidebar(ctk.CTkFrame):
         self._favorites_only = False
         self._search_term = ""
         self._sort_order = app.config.get("tool_sort_order", "Default")
+        self._selected_category = "All"
         self._build()
 
     # ------------------------------------------------------------------ build
@@ -68,7 +69,7 @@ class Sidebar(ctk.CTkFrame):
         )
         search.grid(row=2, column=0, padx=20, pady=(0, 8), sticky="ew")
 
-        # Sort + favorites row
+        # Sort + favorites + category row
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.grid(row=3, column=0, padx=20, pady=(0, 8), sticky="ew")
         row.grid_columnconfigure(0, weight=1)
@@ -93,6 +94,18 @@ class Sidebar(ctk.CTkFrame):
             command=self._toggle_favorites,
         )
         self.fav_btn.grid(row=0, column=1, padx=(6, 0))
+
+        # Category dropdown - populated after tools are loaded
+        self.category_var = ctk.StringVar(value="All")
+        self.category_menu = ctk.CTkOptionMenu(
+            row,
+            values=["All"],
+            variable=self.category_var,
+            command=self._on_category_change,
+            height=28,
+            width=140,
+        )
+        self.category_menu.grid(row=0, column=2, padx=(6, 0))
 
         # Scrollable tool list
         self.list_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
@@ -218,6 +231,10 @@ class Sidebar(ctk.CTkFrame):
             favs = set(self.app.config.get("favorite_tools", []))
             tools = [t for t in tools if t.folder.name in favs]
 
+        # Filter: category.
+        if self._selected_category and self._selected_category != "All":
+            tools = [t for t in tools if t.category == self._selected_category]
+
         # Sort.
         if self._sort_order == "Name A-Z":
             tools.sort(key=lambda t: t.name.lower())
@@ -267,6 +284,20 @@ class Sidebar(ctk.CTkFrame):
         self._favorites_only = not self._favorites_only
         self.fav_btn.configure(fg_color=("#facc15" if self._favorites_only else "transparent"))
         self.populate()
+
+    def _on_category_change(self, value: str) -> None:
+        self._selected_category = value
+        self.populate()
+
+    def update_category_menu(self) -> None:
+        """Update the category dropdown with all unique categories from loaded tools."""
+        categories = sorted(set(t.category for t in self.app.tools if t.category))
+        all_categories = ["All"] + categories
+        self.category_menu.configure(values=all_categories)
+        # Keep current selection if still valid, otherwise reset to "All"
+        if self._selected_category not in all_categories:
+            self._selected_category = "All"
+            self.category_var.set("All")
 
     # ------------------------------------------------------------------ context menu
     def _show_context_menu(self, event, tool_id: str) -> None:

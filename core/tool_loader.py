@@ -105,6 +105,8 @@ class ToolDefinition:
     dependencies: list[ToolDependency] = field(default_factory=list)
     script_exists: bool = True
     errors: list[str] = field(default_factory=list)
+    category: str = ""
+    tags: list[str] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -252,6 +254,15 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
                 # resolution in RuntimeResolver. Log nothing — this is benign.
                 runtime = ""
 
+            category = str(tool_data.get("category", "")).strip()
+            tags_raw = tool_data.get("tags", [])
+            if isinstance(tags_raw, str):
+                tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+            elif isinstance(tags_raw, list):
+                tags = [str(t).strip() for t in tags_raw if str(t).strip()]
+            else:
+                tags = []
+
             tools.append(
                 ToolDefinition(
                     name=str(tool_data.get("name", tool_folder.name)).strip(),
@@ -265,6 +276,8 @@ def load_tools(tools_dir: Path) -> list[ToolDefinition]:
                     dependencies=dependencies,
                     script_exists=script_exists,
                     errors=errors,
+                    category=category,
+                    tags=tags,
                 )
             )
         except Exception as e:

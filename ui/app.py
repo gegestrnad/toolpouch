@@ -96,6 +96,7 @@ class App(_ROOT_BASE):
         self.panel.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
 
         # Initial selection.
+        self.sidebar.update_category_menu()
         self.sidebar.populate()
         if self.current_tool_id:
             self.sidebar.select_by_id(self.current_tool_id)
@@ -141,6 +142,7 @@ class App(_ROOT_BASE):
     def reload(self) -> None:
         """Public reload — called by Sidebar after add/import/delete."""
         self._reload_tools()
+        self.sidebar.update_category_menu()
         self.sidebar.populate()
         # If the currently-selected tool disappeared, clear the panel.
         if self.current_tool_id and not any(

@@ -119,6 +119,19 @@ class WizardDialog(ctk.CTkToplevel):
         self.runtime_hint = ctk.CTkLabel(runtime_row, text="Pick a script first to auto-detect", text_color="gray60", font=ctk.CTkFont(size=11))
         self.runtime_hint.grid(row=0, column=1, padx=(12, 0), sticky="w")
 
+        field("Category")
+        self.category_var = ctk.StringVar()
+        category_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        category_row.grid(row=row[0]-1, column=1, sticky="ew", pady=4)
+        category_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(category_row, textvariable=self.category_var, placeholder_text="e.g., File Utilities").grid(row=0, column=0, sticky="ew")
+        # Quick-pick common categories
+        ctk.CTkOptionMenu(category_row, values=["File Utilities", "Text Processing", "Data Processing", "Image Processing", "System", "Network"], width=140, command=lambda v: self.category_var.set(v)).grid(row=0, column=1, padx=(6, 0))
+
+        field("Tags (comma-separated)")
+        self.tags_var = ctk.StringVar()
+        ctk.CTkEntry(scroll, textvariable=self.tags_var, placeholder_text="e.g., batch, automation").grid(row=row[0]-1, column=1, sticky="ew", pady=4)
+
         # ---- Step 2: Script
         sep_label("2. Script file")
         field("Script *")
@@ -229,6 +242,8 @@ class WizardDialog(ctk.CTkToplevel):
         self.icon_var.set(tool.icon)
         self.long_running_var.set(bool(tool.long_running))
         self.runtime_var.set(tool.runtime or "(auto-detect)")
+        self.category_var.set(tool.category)
+        self.tags_var.set(", ".join(tool.tags))
         # Script path: we can't easily resolve the original; use the
         # in-place script_path so user can see what's there.
         self.script_path_var.set(str(tool.script_path))
@@ -305,6 +320,10 @@ class WizardDialog(ctk.CTkToplevel):
         if runtime_val in ("", "(auto-detect)", "auto-detect", "auto"):
             runtime_val = ""
 
+        category_val = self.category_var.get().strip()
+        tags_raw = self.tags_var.get().strip()
+        tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else []
+
         toml = generate_toml(
             name=name,
             description=desc,
@@ -313,6 +332,8 @@ class WizardDialog(ctk.CTkToplevel):
             long_running=bool(self.long_running_var.get()),
             params=params,
             runtime=runtime_val,
+            category=category_val,
+            tags=tags_list,
         )
 
         try:
